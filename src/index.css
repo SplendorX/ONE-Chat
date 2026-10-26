@@ -1,0 +1,116 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* One Chat — CSS custom properties */
+:root {
+  /* Brand surfaces */
+  --bg: #FFFFFF;
+  --bg-warm: #FAF8F4;
+  --surface: rgba(255, 255, 255, 0.72);
+  --surface-strong: rgba(255, 255, 255, 0.92);
+  --surface-muted: #EDE5D8;
+
+  /* Text */
+  --ink: #302B26;
+  --ink-2: #3d3830;
+  --muted: #857D73;
+  --subtle: #a09890;
+
+  /* Borders */
+  --border: rgba(48, 43, 38, 0.10);
+  --border-strong: rgba(48, 43, 38, 0.24);
+
+  /* Actions */
+  --accent: #302B26;
+  --accent-hover: #4a4238;
+  --accent-beige: #EDE5D8;
+  --accent-beige-hover: #DCCFBD;
+
+  /* Semantic */
+  --success: #27845B;
+  --danger: #C94B45;
+  --focus: #DCCFBD;
+}
+
+.dark {
+  --bg: #171614;
+  --bg-warm: #1e1c19;
+  --surface: rgba(34, 32, 29, 0.85);
+  --surface-strong: rgba(44, 41, 37, 0.95);
+  --surface-muted: #22201D;
+
+  --ink: #F5F0EA;
+  --ink-2: #d4cfc8;
+  --muted: #9e9890;
+  --subtle: #6e6a64;
+
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.18);
+
+  --accent: #EDE5D8;
+  --accent-hover: #FAF8F4;
+  --accent-beige: #302B26;
+  --accent-beige-hover: #3d3830;
+
+  --success: #34a36d;
+  --danger: #e05a54;
+  --focus: #4a4238;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'DM Sans', sans-serif;
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.display {
+  font-family: 'Space Grotesk', sans-serif;
+  letter-spacing: -0.03em;
+}
+
+.mono {
+  font-family: 'JetBrains Mono', Menlo, monospace;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 2px;
+}
+
+/* Focus ring */
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Smooth transitions for theme switching */
+*, *::before, *::after {
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+/* Prevent transition flash on interactive elements */
+button, a, input, textarea {
+  transition: none;
+}
+
+/* Sonner toast overrides */
+[data-sonner-toaster] {
+  font-family: 'DM Sans', sans-serif !important;
+}
