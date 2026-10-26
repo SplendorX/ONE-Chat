@@ -48,6 +48,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const user = await requireAuth(req, res); if (!user) return;
     const { handle } = req.body as { handle?: string };
     if (!handle || !/^[a-z0-9]{3,24}$/.test(handle)) { res.status(400).json({ error: 'Invalid handle format' }); return; }
+
+    // Ensure profile row exists (may not if the DB trigger missed the OAuth signup)
+    const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(user.userId);
+    const meta = authUser?.user?.user_metadata ?? {};
+    await supabaseAdmin.from('profiles').upsert({
+      id: user.userId,
+      display_name: (meta.full_name as string | undefined) ?? user.userEmail?.split('@')[0] ?? 'User',
+      avatar_url: (meta.avatar_url as string | undefined) ?? null,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'id' });
+
     const { data: existing } = await supabaseAdmin.from('one_identities').select('id').eq('user_id', user.userId).maybeSingle();
     if (existing) { res.status(409).json({ error: 'You already have a ONE identity' }); return; }
     const { error } = await supabaseAdmin.from('one_identities').insert({ user_id: user.userId, handle });
