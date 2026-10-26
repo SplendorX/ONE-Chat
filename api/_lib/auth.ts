@@ -3,7 +3,7 @@
  * Returns { userId, userEmail } on success, or sends 401 and returns null.
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabaseAdmin } from './clients';
+import { getSupabaseAdmin } from './clients';
 
 export async function requireAuth(
   req: VercelRequest,
@@ -15,7 +15,7 @@ export async function requireAuth(
     return null;
   }
   const token = auth.slice(7);
-  const { data, error } = await supabaseAdmin.auth.getUser(token);
+  const { data, error } = await getSupabaseAdmin().auth.getUser(token);
   if (error || !data.user) {
     res.status(401).json({ error: 'Invalid or expired token' });
     return null;
