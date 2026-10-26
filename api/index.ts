@@ -4,7 +4,7 @@
  * This lets us deploy the full stack from a single serverless function.
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { supabaseAdmin, circleSdk, BLOCKCHAIN } from './_lib/clients';
+import { supabaseAdmin, circleSdk, BLOCKCHAIN, checkEnv } from './_lib/clients';
 import { requireAuth } from './_lib/auth';
 import { randomUUID } from 'node:crypto';
 
@@ -16,6 +16,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') { res.status(200).end(); return; }
+
+  // Fail fast with a clear message if env vars are missing
+  const envErr = checkEnv();
+  if (envErr) { res.status(500).json({ error: envErr }); return; }
 
   const url = req.url ?? '';
   // Strip the /api prefix that Vercel passes through
