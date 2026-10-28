@@ -1,13 +1,45 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
-  <!-- Outer circle ring -->
-  <circle cx="108" cy="96" r="62" stroke="#C4A265" stroke-width="18" fill="none"/>
-  <!-- Speech bubble body (the "1" fills into the bubble, tail bottom-left) -->
-  <path d="M108 34 C73 34 46 61 46 96 C46 118 58 137 76 148 L56 170 L90 155 C95 156 101 157 108 157 C143 157 170 130 170 96 C170 61 143 34 108 34 Z" fill="#C4A265"/>
-  <!-- Inner white negative space for the "1" and dots -->
-  <!-- The "1" numeral in cream/white -->
-  <text x="88" y="118" font-family="'Space Grotesk', Arial Black, sans-serif" font-size="58" font-weight="800" fill="#F2EDE3" letter-spacing="-2">1</text>
-  <!-- Three dots -->
-  <circle cx="120" cy="101" r="5.5" fill="#C4A265"/>
-  <circle cx="137" cy="101" r="5.5" fill="#C4A265"/>
-  <circle cx="154" cy="101" r="5.5" fill="#C4A265"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!--
+    Logo: gold speech bubble inside an open circle ring.
+    The bubble has a bottom-left tail. The circle ring is open
+    at bottom-left (where the tail exits). Inside: bold "1" + three dots
+    rendered as cream cutouts via even-odd fill rule.
+  -->
+
+  <!-- 1. The open circle ring (arc from ~230° to ~310° clockwise, gap at bottom-left) -->
+  <!--    Drawn as a thick-stroked arc. The gap aligns with the tail. -->
+  <!--    Start point ~230°: x=100+58*cos(230°), y=95+58*sin(230°) ≈ (62.7, 139.4) -->
+  <!--    End point  ~310°: x=100+58*cos(310°), y=95+58*sin(310°) ≈ (137.3, 50.6)  -->
+  <!--    large-arc-flag=1 because we go the long way round (>180°)                  -->
+  <path
+    d="M 62 140 A 58 58 0 1 1 137 51"
+    stroke="#C4A265"
+    stroke-width="15"
+    stroke-linecap="round"
+    fill="none"
+  />
+
+  <!-- 2. Speech bubble + "1" + dots as a compound even-odd shape -->
+  <g fill-rule="evenodd" fill="#C4A265">
+    <!-- Bubble body: rounded rectangle with bottom-left pointed tail -->
+    <path d="
+      M 100 40
+      C 71 40, 48 62, 48 88
+      C 48 112, 64 131, 87 138
+      L 60 163
+      L 90 146
+      C 93 147, 96 148, 100 148
+      C 129 148, 152 126, 152 100
+      C 152 68, 129 40, 100 40
+      Z
+    "/>
+    <!-- Cutout: "1" stem (vertical bar) -->
+    <rect x="79" y="67" width="18" height="62" rx="4"/>
+    <!-- Cutout: "1" top-left serif / hook -->
+    <path d="M 65 84 Q 73 68, 84 63 L 88 72 Q 80 76, 76 89 Z"/>
+    <!-- Cutout: three dots -->
+    <circle cx="116" cy="98" r="6"/>
+    <circle cx="132" cy="98" r="6"/>
+    <circle cx="148" cy="98" r="6"/>
+  </g>
 </svg>
