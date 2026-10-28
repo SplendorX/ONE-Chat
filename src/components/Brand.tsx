@@ -15,7 +15,7 @@ interface LogoProps {
 export function OneChatLogo({ size = 40, className }: LogoProps) {
   return (
     <img
-      src="/logo.svg"
+      src="/logo.svg?v=3"
       alt="ONE Chat"
       width={size}
       height={size}
@@ -33,11 +33,11 @@ interface WordmarkProps {
 
 /** Full "ONE Chat" horizontal wordmark. */
 export function OneChatWordmark({ height = 32, className }: WordmarkProps) {
-  // SVG viewBox is 520×120 → ratio 4.333
-  const width = Math.round(height * (520 / 120));
+  // SVG viewBox is 440×90 → ratio ~4.89
+  const width = Math.round(height * (440 / 90));
   return (
     <img
-      src="/wordmark.svg"
+      src="/wordmark.svg?v=3"
       alt="ONE Chat"
       width={width}
       height={height}
