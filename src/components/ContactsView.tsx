@@ -119,7 +119,7 @@ export function ContactsView({ session, onStartChat }: ContactsViewProps) {
         <button
           onClick={() => setShowNew(true)}
           className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
-          style={{ background: 'var(--ink)', color: 'white' }}
+          style={{ background: 'var(--ink)', color: 'var(--bg)' }}
           title="Find someone">
           <UserPlus size={15} />
         </button>
@@ -152,7 +152,7 @@ export function ContactsView({ session, onStartChat }: ContactsViewProps) {
               <button
                 onClick={() => setShowNew(true)}
                 className="text-xs px-4 py-2 rounded-full transition-all"
-                style={{ background: 'var(--ink)', color: 'white' }}>
+                style={{ background: 'var(--ink)', color: 'var(--bg)' }}>
                 Find someone by .one handle
               </button>
             )}

@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import type { Session } from '@supabase/supabase-js';
-import { ArrowLeft, Phone, MoreHorizontal, Send, Paperclip, DollarSign, Check, CheckCheck, Sparkles, Loader2 } from 'lucide-react';
+import { ArrowLeft, Phone, MoreHorizontal, Send, Paperclip, DollarSign, Check, CheckCheck, Loader2 } from 'lucide-react';
+import { AllieIcon } from './AllieIcon';
 import type { Conversation, Message, User } from '../types';
 import { supabase } from '../lib/supabase';
 import { formatDate, formatTimestamp } from '../lib/utils';
@@ -256,8 +258,8 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
         </button>
 
         <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
-          style={{ background: isAllie ? 'linear-gradient(135deg, #302B26 0%, #857D73 100%)' : 'var(--ink)', color: 'white' }}>
-          {isAllie ? <Sparkles size={14} /> : conversation.initials}
+          style={{ background: isAllie ? 'transparent' : 'var(--ink)', color: 'var(--bg)', padding: 0 }}>
+          {isAllie ? <AllieIcon size={36} state={otherTyping ? 'thinking' : 'idle'} /> : conversation.initials}
         </div>
 
         <div className="flex-1 min-w-0">
@@ -301,18 +303,23 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
               <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
             </div>
             {group.messages.map((msg) => (
-              <MessageBubble key={msg.id} msg={msg} isAllie={isAllie} />
+              <motion.div key={msg.id}
+                initial={{ opacity: 0, y: 6, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}>
+                <MessageBubble msg={msg} isAllie={isAllie} />
+              </motion.div>
             ))}
           </div>
         ))}
 
         {/* Typing indicator */}
+        <AnimatePresence>
         {otherTyping && (
-          <div className="flex items-end gap-2">
-            <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs flex-shrink-0"
-              style={{ background: 'linear-gradient(135deg, #302B26 0%, #857D73 100%)' }}>
-              <Sparkles size={10} color="white" />
-            </div>
+          <motion.div className="flex items-end gap-2"
+            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }}
+            transition={{ duration: 0.2 }}>
+            <AllieIcon size={28} state="thinking" />
             <div className="px-4 py-3 rounded-2xl rounded-bl-sm flex gap-1 items-center"
               style={{ background: 'var(--surface-bubble-in)', border: '1px solid var(--border)' }}>
               {[0, 1, 2].map((i) => (
@@ -320,8 +327,9 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
                   style={{ background: 'var(--muted)', animationDelay: `${i * 150}ms` }} />
               ))}
             </div>
-          </div>
+          </motion.div>
         )}
+        </AnimatePresence>
 
         <div ref={bottomRef} />
       </div>
@@ -394,20 +402,20 @@ function MessageBubble({ msg, isAllie }: { msg: Message; isAllie: boolean }) {
       <div className={`flex ${msg.isOwn ? 'justify-end' : 'justify-start'} my-2`}>
         <div className="rounded-2xl p-4 max-w-xs w-full"
           style={{ background: msg.isOwn ? 'var(--ink)' : 'var(--surface-muted)', border: '1px solid var(--border)' }}>
-          <div className="text-xs font-medium mb-1" style={{ color: msg.isOwn ? 'rgba(255,255,255,0.6)' : 'var(--muted)' }}>
+          <div className="text-xs font-medium mb-1" style={{ color: msg.isOwn ? 'var(--subtle)' : 'var(--muted)' }}>
             {msg.type === 'payment' ? 'Sent USDC' : 'Payment request'}
           </div>
-          <div className="display text-2xl font-bold tabular-nums" style={{ color: msg.isOwn ? 'white' : 'var(--ink)' }}>
+          <div className="display text-2xl font-bold tabular-nums" style={{ color: msg.isOwn ? 'var(--bg)' : 'var(--ink)' }}>
             ${meta?.amount ?? '0'} <span className="text-sm font-medium">USDC</span>
           </div>
           {meta?.recipientHandle && (
-            <div className="text-xs mt-1" style={{ color: msg.isOwn ? 'rgba(255,255,255,0.5)' : 'var(--muted)' }}>
+            <div className="text-xs mt-1" style={{ color: msg.isOwn ? 'var(--subtle)' : 'var(--muted)' }}>
               to {meta.recipientHandle}
             </div>
           )}
           <div className="flex items-center gap-1 mt-2">
             <div className="w-1.5 h-1.5 rounded-full" style={{ background: stateColor }} />
-            <span className="text-xs" style={{ color: msg.isOwn ? 'rgba(255,255,255,0.5)' : 'var(--muted)' }}>
+            <span className="text-xs" style={{ color: msg.isOwn ? 'var(--subtle)' : 'var(--muted)' }}>
               {state === 'COMPLETE' ? 'Confirmed' : state === 'FAILED' ? 'Failed' : 'Processing…'}
             </span>
           </div>
@@ -425,16 +433,13 @@ function MessageBubble({ msg, isAllie }: { msg: Message; isAllie: boolean }) {
         </div>
       )}
       {!msg.isOwn && isAllie && (
-        <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mb-1"
-          style={{ background: 'linear-gradient(135deg, #302B26 0%, #857D73 100%)' }}>
-          <Sparkles size={10} color="white" />
-        </div>
+        <AllieIcon size={26} state="idle" className="mb-1 flex-shrink-0" />
       )}
       <div className="max-w-xs lg:max-w-sm">
         <div className={`px-4 py-2.5 text-sm leading-relaxed ${msg.isOwn ? 'rounded-2xl rounded-br-sm' : 'rounded-2xl rounded-bl-sm'}`}
           style={{
             background: msg.isOwn ? 'var(--ink)' : 'var(--surface-bubble-in)',
-            color: msg.isOwn ? 'white' : 'var(--ink)',
+            color: msg.isOwn ? 'var(--bg)' : 'var(--ink)',
             border: msg.isOwn ? 'none' : '1px solid var(--border)',
           }}>
           {msg.content}

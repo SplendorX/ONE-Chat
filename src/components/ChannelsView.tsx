@@ -96,7 +96,7 @@ function ChannelCard({ channel, onToggleFollow, onGift }: {
       {/* Channel header */}
       <div className="px-5 py-4 flex items-start gap-3">
         <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-lg font-bold flex-shrink-0"
-          style={{ background: 'var(--oat-beige, #EDE5D8)', color: 'var(--ink)' }}>
+          style={{ background: 'var(--surface-muted)', color: 'var(--ink)' }}>
           {channel.name[0]}
         </div>
         <div className="flex-1 min-w-0">
@@ -154,7 +154,7 @@ function PostCard({ post, onGift }: { post: ChannelPost; onGift: () => void }) {
           <button
             onClick={onGift}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
-            style={{ background: 'var(--oat-beige, #EDE5D8)', color: 'var(--ink)', border: '1px solid var(--sand, #DCCFBD)' }}>
+            style={{ background: '#C4A265', color: '#1a1714', border: 'none' }}>
             <Gift size={12} />
             Gift USDC
           </button>

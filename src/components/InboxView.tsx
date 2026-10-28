@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { Search, Plus } from 'lucide-react';
 import type { Session } from '@supabase/supabase-js';
 import type { Conversation } from '../types';
@@ -79,8 +80,12 @@ export function InboxView({ conversations, activeConvId, session, onSelect, onCo
           </div>
         ) : (
           <div className="space-y-0.5">
-            {filtered.map((conv) => (
-              <ConvRow key={conv.id} conv={conv} isActive={activeConvId === conv.id} onSelect={onSelect} />
+            {filtered.map((conv, i) => (
+              <motion.div key={conv.id}
+                initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.15, delay: i * 0.03, ease: 'easeOut' }}>
+                <ConvRow conv={conv} isActive={activeConvId === conv.id} onSelect={onSelect} />
+              </motion.div>
             ))}
           </div>
         )}

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { X, Search, Loader2, MessageCircle, AlertCircle, Users, Plus, Check } from 'lucide-react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
@@ -147,7 +148,9 @@ export function NewConversationModal({ session, initialQuery, onClose, onCreated
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
       style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}>
-      <div className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl"
+      <motion.div className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl"
+        initial={{ opacity: 0, y: 24, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 12 }} transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
         style={{ background: 'var(--bg)', border: '1px solid var(--border)', maxHeight: '85dvh', display: 'flex', flexDirection: 'column' }}>
 
         {/* Header */}
@@ -164,7 +167,7 @@ export function NewConversationModal({ session, initialQuery, onClose, onCreated
           {([['dm', 'Direct Message', MessageCircle], ['group', 'Group Chat', Users]] as const).map(([t, label, Icon]) => (
             <button key={t} onClick={() => { setTab(t); setQuery(''); setResults([]); setError(null); }}
               className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-sm font-medium transition-all"
-              style={{ background: tab === t ? 'var(--ink)' : 'var(--surface-muted)', color: tab === t ? 'white' : 'var(--muted)' }}>
+              style={{ background: tab === t ? 'var(--ink)' : 'var(--surface-muted)', color: tab === t ? 'var(--bg)' : 'var(--muted)' }}>
               <Icon size={14} /> {label}
             </button>
           ))}
@@ -270,7 +273,7 @@ export function NewConversationModal({ session, initialQuery, onClose, onCreated
             </button>
           </div>
         )}
-      </div>
+      </motion.div>
     </div>
   );
 }
