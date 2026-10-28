@@ -111,7 +111,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .select().single();
       if (saveErr) throw saveErr;
       res.json({ wallet: saved });
-    } catch (err) { res.status(500).json({ error: err instanceof Error ? err.message : String(err) }); }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const detail = (err as { response?: { data?: unknown } })?.response?.data;
+      console.error('[wallet/provision]', msg, detail ?? '');
+      res.status(500).json({ error: msg, detail });
+    }
     return;
   }
 

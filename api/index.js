@@ -42189,7 +42189,10 @@ async function handler(req, res) {
       if (saveErr) throw saveErr;
       res.json({ wallet: saved });
     } catch (err) {
-      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+      const msg = err instanceof Error ? err.message : String(err);
+      const detail = err?.response?.data;
+      console.error("[wallet/provision]", msg, detail ?? "");
+      res.status(500).json({ error: msg, detail });
     }
     return;
   }
