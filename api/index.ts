@@ -1,30 +1,31 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { createClient } from '@supabase/supabase-js';
-import { initiateDeveloperControlledWalletsClient } from '@circle-fin/developer-controlled-wallets';
-import { randomUUID } from 'crypto';
+/* eslint-disable @typescript-eslint/no-require-imports */
+// This folder has "type":"commonjs" (api/package.json) so require() is correct here.
+const { createClient } = require('@supabase/supabase-js');
+const { initiateDeveloperControlledWalletsClient } = require('@circle-fin/developer-controlled-wallets');
+const { randomUUID } = require('crypto');
 
 const BLOCKCHAIN = 'ARC-TESTNET';
 const RESERVED = ['admin', 'allie', 'onechat', 'support', 'help', 'system', 'root', 'circle', 'arc'];
 
-function checkEnv(): string | null {
+function checkEnv() {
   const missing = ['VITE_SUPABASE_URL', 'SUPABASE_SERVICE_KEY', 'CIRCLE_API_KEY', 'CIRCLE_ENTITY_SECRET'].filter((k) => !process.env[k]);
   return missing.length ? `Server misconfigured — missing: ${missing.join(', ')}` : null;
 }
 
 function db() {
-  return createClient(process.env.VITE_SUPABASE_URL!, process.env.SUPABASE_SERVICE_KEY!, {
+  return createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }
 
 function circle() {
   return initiateDeveloperControlledWalletsClient({
-    apiKey: process.env.CIRCLE_API_KEY!,
-    entitySecret: process.env.CIRCLE_ENTITY_SECRET!,
+    apiKey: process.env.CIRCLE_API_KEY,
+    entitySecret: process.env.CIRCLE_ENTITY_SECRET,
   });
 }
 
-async function getUser(req: VercelRequest, res: VercelResponse): Promise<{ userId: string; userEmail: string | undefined } | null> {
+async function getUser(req, res) {
   const auth = req.headers.authorization;
   if (!auth?.startsWith('Bearer ')) { res.status(401).json({ error: 'Missing bearer token' }); return null; }
   const { data, error } = await db().auth.getUser(auth.slice(7));
@@ -32,7 +33,7 @@ async function getUser(req: VercelRequest, res: VercelResponse): Promise<{ userI
   return { userId: data.user.id, userEmail: data.user.email };
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -60,17 +61,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // POST /identity/claim
   if (path === '/identity/claim' && req.method === 'POST') {
     const user = await getUser(req, res); if (!user) return;
-    const body = req.body as { handle?: string };
-    const handle = body?.handle;
+    const handle = req.body?.handle;
     if (!handle || !/^[a-z0-9]{3,24}$/.test(handle)) { res.status(400).json({ error: 'Invalid handle' }); return; }
     const supabase = db();
-    // Ensure profile exists
     const { data: authUser } = await supabase.auth.admin.getUserById(user.userId);
     const meta = authUser?.user?.user_metadata ?? {};
     await supabase.from('profiles').upsert({
       id: user.userId,
-      display_name: (meta.full_name as string | undefined) ?? user.userEmail?.split('@')[0] ?? 'User',
-      avatar_url: (meta.avatar_url as string | undefined) ?? null,
+      display_name: meta.full_name ?? user.userEmail?.split('@')[0] ?? 'User',
+      avatar_url: meta.avatar_url ?? null,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'id' });
     const { data: existing } = await supabase.from('one_identities').select('id').eq('user_id', user.userId).maybeSingle();
@@ -89,7 +88,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { data: identity } = await supabase.from('one_identities').select('user_id, handle, profiles(display_name, avatar_url)').eq('handle', handle).maybeSingle();
     if (!identity) { res.status(404).json({ error: 'Identity not found' }); return; }
     const { data: wallet } = await supabase.from('wallets').select('circle_wallet_id, address').eq('user_id', identity.user_id).maybeSingle();
-    res.json({ handle: `${identity.handle}.one`, userId: identity.user_id, profile: (identity as { profiles?: unknown }).profiles, address: wallet?.address ?? null, circleWalletId: wallet?.circle_wallet_id ?? null }); return;
+    res.json({ handle: `${identity.handle}.one`, userId: identity.user_id, profile: identity.profiles, address: wallet?.address ?? null, circleWalletId: wallet?.circle_wallet_id ?? null }); return;
   }
 
   // POST /wallet/provision
@@ -131,7 +130,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // POST /payment/send
   if (path === '/payment/send' && req.method === 'POST') {
     const user = await getUser(req, res); if (!user) return;
-    const { recipientHandle, amount, conversationId, note } = req.body as { recipientHandle?: string; amount?: string; conversationId?: string; note?: string };
+    const { recipientHandle, amount, conversationId, note } = req.body ?? {};
     if (!recipientHandle || !amount || !conversationId) { res.status(400).json({ error: 'recipientHandle, amount, and conversationId required' }); return; }
     const amountNum = parseFloat(amount);
     if (isNaN(amountNum) || amountNum <= 0) { res.status(400).json({ error: 'Invalid amount' }); return; }
@@ -170,9 +169,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!tx) { res.status(404).json({ error: 'Transaction not found' }); return; }
     if (!tx.circle_transaction_id) { res.json({ transaction: tx }); return; }
     try {
-      const circleTx = await circle().getTransaction({ id: tx.circle_transaction_id as string });
-      const state = circleTx.data?.transaction?.state ?? (tx.state as string);
-      const txHash = circleTx.data?.transaction?.txHash ?? (tx.tx_hash as string | null);
+      const circleTx = await circle().getTransaction({ id: tx.circle_transaction_id });
+      const state = circleTx.data?.transaction?.state ?? tx.state;
+      const txHash = circleTx.data?.transaction?.txHash ?? tx.tx_hash ?? null;
       if (state !== tx.state) await supabase.from('transactions').update({ state, tx_hash: txHash, updated_at: new Date().toISOString() }).eq('id', tx.id);
       res.json({ transaction: { ...tx, state, tx_hash: txHash } });
     } catch (err) { res.status(500).json({ error: err instanceof Error ? err.message : String(err) }); }
@@ -180,4 +179,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   res.status(404).json({ error: `Not found: ${path}` });
-}
+};
