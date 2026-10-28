@@ -32,8 +32,9 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   const headers = await authHeaders();
   const res = await fetch(`${API_BASE}${path}`, { method: 'POST', headers, body: JSON.stringify(body) });
   if (!res.ok) {
-    const b = await res.json().catch(() => ({})) as { error?: string };
-    throw new Error(b.error ?? `API error ${res.status}`);
+    const b = await res.json().catch(() => ({})) as { error?: string; detail?: unknown };
+    const detail = b.detail ? ` (${typeof b.detail === 'string' ? b.detail : JSON.stringify(b.detail)})` : '';
+    throw new Error((b.error ?? `API error ${res.status}`) + detail);
   }
   return res.json() as Promise<T>;
 }

@@ -37,7 +37,8 @@ export function ProfileView({ user, session: _session, theme, onThemeToggle, onS
       setBalance(b);
       setWalletAddress(address);
     } catch (err) {
-      setWalletError(err instanceof Error ? err.message : 'Wallet setup failed');
+      const msg = err instanceof Error ? err.message : (typeof err === 'string' ? err : 'Wallet setup failed');
+      setWalletError(msg);
     } finally {
       setWalletProvisioning(false);
     }
