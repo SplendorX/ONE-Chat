@@ -1,15 +1,15 @@
 {
-  "buildCommand": "bun run build && bunx esbuild api/index.ts --bundle --platform=node --format=cjs --outfile=api/dist/index.js --external:@vercel/node",
+  "buildCommand": "bun run build && bunx esbuild api/index.ts --bundle --platform=node --format=cjs --outfile=api/index.js --external:@vercel/node",
   "installCommand": "bun install",
   "outputDirectory": "dist",
   "framework": "vite",
   "functions": {
-    "api/dist/index.js": {
+    "api/index.js": {
       "maxDuration": 60
     }
   },
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/dist/index" },
+    { "source": "/api/(.*)", "destination": "/api/index" },
     { "source": "/((?!api).*)", "destination": "/index.html" }
   ]
 }
