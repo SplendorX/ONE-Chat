@@ -249,7 +249,7 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
     <div className="flex flex-col h-full" style={{ background: 'var(--bg)' }}>
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b flex-shrink-0"
-        style={{ background: 'rgba(255,255,255,0.88)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderColor: 'var(--border)' }}>
+        style={{ background: 'var(--surface-card)', borderColor: 'var(--border)' }}>
         <button onClick={onBack} className="lg:hidden w-8 h-8 rounded-full flex items-center justify-center bg-transparent border-0 cursor-pointer"
           style={{ color: 'var(--muted)' }}>
           <ArrowLeft size={18} />
@@ -314,7 +314,7 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
               <Sparkles size={10} color="white" />
             </div>
             <div className="px-4 py-3 rounded-2xl rounded-bl-sm flex gap-1 items-center"
-              style={{ background: 'var(--surface-muted)', border: '1px solid var(--border)' }}>
+              style={{ background: 'var(--surface-bubble-in)', border: '1px solid var(--border)' }}>
               {[0, 1, 2].map((i) => (
                 <div key={i} className="w-1.5 h-1.5 rounded-full animate-bounce"
                   style={{ background: 'var(--muted)', animationDelay: `${i * 150}ms` }} />
@@ -328,7 +328,7 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
 
       {/* Composer */}
       <div className="flex-shrink-0 px-4 py-3 border-t"
-        style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderColor: 'var(--border)' }}>
+        style={{ background: 'var(--surface-card)', borderColor: 'var(--border)' }}>
         <div className="flex items-end gap-2">
           <button
             onClick={() => setShowPayment(true)}
@@ -433,10 +433,9 @@ function MessageBubble({ msg, isAllie }: { msg: Message; isAllie: boolean }) {
       <div className="max-w-xs lg:max-w-sm">
         <div className={`px-4 py-2.5 text-sm leading-relaxed ${msg.isOwn ? 'rounded-2xl rounded-br-sm' : 'rounded-2xl rounded-bl-sm'}`}
           style={{
-            background: msg.isOwn ? 'var(--ink)' : 'rgba(255,255,255,0.8)',
+            background: msg.isOwn ? 'var(--ink)' : 'var(--surface-bubble-in)',
             color: msg.isOwn ? 'white' : 'var(--ink)',
             border: msg.isOwn ? 'none' : '1px solid var(--border)',
-            backdropFilter: msg.isOwn ? 'none' : 'blur(12px)',
           }}>
           {msg.content}
         </div>

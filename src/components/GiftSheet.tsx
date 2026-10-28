@@ -56,7 +56,7 @@ export function GiftSheet({ creatorOneId, creatorName, postExcerpt, session: _se
 
       <div className="relative w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl p-6 border animate-slide-up"
         style={{
-          background: 'rgba(255,255,255,0.96)',
+          background: 'var(--surface-overlay)',
           backdropFilter: 'blur(24px)',
           WebkitBackdropFilter: 'blur(24px)',
           borderColor: 'var(--border)',

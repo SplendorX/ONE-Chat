@@ -10,7 +10,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
     <div className="min-h-dvh" style={{ background: 'var(--bg)' }}>
       {/* Nav */}
       <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 md:px-12"
-        style={{ background: 'rgba(255,255,255,0.88)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderBottom: '1px solid var(--border)' }}>
+        style={{ background: 'var(--surface-card)', borderBottom: '1px solid var(--border)' }}>
         <OneChatWordmark height={28} />
         <div className="flex items-center gap-3">
           <button
@@ -34,8 +34,8 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
       <section className="relative overflow-hidden pt-32 pb-24 px-6 md:px-12 text-center">
         {/* Background blobs */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div style={{ position: 'absolute', top: '10%', left: '10%', width: 400, height: 400, borderRadius: '50%', background: 'radial-gradient(circle, rgba(237,229,216,0.6) 0%, transparent 70%)', filter: 'blur(80px)' }} />
-          <div style={{ position: 'absolute', bottom: '15%', right: '5%', width: 350, height: 350, borderRadius: '50%', background: 'radial-gradient(circle, rgba(220,207,189,0.5) 0%, transparent 70%)', filter: 'blur(70px)' }} />
+          <div style={{ position: 'absolute', top: '10%', left: '10%', width: 400, height: 400, borderRadius: '50%', background: 'radial-gradient(circle, var(--surface-muted) 0%, transparent 70%)', filter: 'blur(80px)', opacity: 0.5 }} />
+          <div style={{ position: 'absolute', bottom: '15%', right: '5%', width: 350, height: 350, borderRadius: '50%', background: 'radial-gradient(circle, var(--surface-muted) 0%, transparent 70%)', filter: 'blur(70px)', opacity: 0.4 }} />
         </div>
 
         <div className="relative z-10 max-w-3xl mx-auto">
@@ -80,8 +80,8 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
 
         {/* Hero product mockup */}
         <div className="relative z-10 mt-20 max-w-sm mx-auto md:max-w-2xl">
-          <div className="rounded-3xl overflow-hidden shadow-glass border"
-            style={{ background: 'var(--surface-strong)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', borderColor: 'var(--border-strong)' }}>
+          <div className="rounded-3xl overflow-hidden border"
+            style={{ background: 'var(--surface-card)', borderColor: 'var(--border-strong)' }}>
             {/* Mock chat header */}
             <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: 'var(--border)' }}>
               <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold"
@@ -99,7 +99,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
                 </div>
               </div>
               <div className="flex justify-end">
-                <div className="px-4 py-2.5 rounded-2xl rounded-tr-sm text-sm max-w-xs" style={{ background: 'var(--oat-beige, #EDE5D8)', color: 'var(--ink)' }}>
+                <div className="px-4 py-2.5 rounded-2xl rounded-tr-sm text-sm max-w-xs" style={{ background: 'var(--ink)', color: 'white' }}>
                   Sure! Sending now
                 </div>
               </div>

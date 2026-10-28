@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { ArrowRight, Mail, ArrowLeft } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { OneChatWordmark } from './Brand';
 
 interface AuthScreenProps {
   onAuthSuccess: (session: Session) => void;
@@ -76,15 +77,15 @@ export function AuthScreen({ onAuthSuccess, onBack }: AuthScreenProps) {
       style={{ background: 'var(--bg)' }}>
       {/* Background blobs */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden>
-        <div style={{ position: 'absolute', top: '5%', right: '10%', width: 320, height: 320, borderRadius: '50%', background: 'radial-gradient(circle, rgba(237,229,216,0.6) 0%, transparent 70%)', filter: 'blur(64px)' }} />
-        <div style={{ position: 'absolute', bottom: '10%', left: '5%', width: 280, height: 280, borderRadius: '50%', background: 'radial-gradient(circle, rgba(220,207,189,0.45) 0%, transparent 70%)', filter: 'blur(56px)' }} />
+        <div style={{ position: 'absolute', top: '5%', right: '10%', width: 320, height: 320, borderRadius: '50%', background: 'radial-gradient(circle, var(--surface-muted) 0%, transparent 70%)', filter: 'blur(64px)', opacity: 0.5 }} />
+        <div style={{ position: 'absolute', bottom: '10%', left: '5%', width: 280, height: 280, borderRadius: '50%', background: 'radial-gradient(circle, var(--surface-muted) 0%, transparent 70%)', filter: 'blur(56px)', opacity: 0.4 }} />
       </div>
 
       <div className="relative z-10 w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-10">
-          <button onClick={onBack} className="display text-2xl font-bold mb-2 block mx-auto bg-transparent border-0 cursor-pointer" style={{ color: 'var(--ink)', letterSpacing: '-0.03em' }}>
-            ONE CHAT
+          <button onClick={onBack} className="mb-3 inline-flex bg-transparent border-0 cursor-pointer mx-auto">
+            <OneChatWordmark height={30} />
           </button>
           <p className="text-sm" style={{ color: 'var(--muted)' }}>
             {step === 'method' && 'Sign in or create your account'}
@@ -94,7 +95,7 @@ export function AuthScreen({ onAuthSuccess, onBack }: AuthScreenProps) {
         </div>
 
         <div className="rounded-3xl p-7"
-          style={{ background: 'rgba(255,255,255,0.88)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid var(--border)', boxShadow: '0 8px 32px rgba(48,43,38,0.07)' }}>
+          style={{ background: 'var(--surface-card)', border: '1px solid var(--border)', boxShadow: '0 8px 32px rgba(48,43,38,0.10)' }}>
 
           {/* Back button inside card (for sub-steps) */}
           {step !== 'method' && (

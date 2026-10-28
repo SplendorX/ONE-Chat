@@ -108,7 +108,7 @@ export function PaymentSheet({ conversation, session, onClose, onPaymentSent }: 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}>
       <div className="w-full max-w-sm rounded-t-3xl sm:rounded-3xl p-6 animate-slide-up"
-        style={{ background: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid var(--border)', boxShadow: '0 24px 64px rgba(48,43,38,0.2)' }}>
+        style={{ background: 'var(--surface-overlay)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid var(--border)', boxShadow: '0 24px 64px rgba(48,43,38,0.2)' }}>
 
         {/* Drag handle */}
         <div className="w-10 h-1 rounded-full mx-auto mb-5 sm:hidden" style={{ background: 'var(--border-strong)' }} />

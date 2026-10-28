@@ -291,3 +291,7 @@
 {"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793192769166}
 {"level":"debug","message":"[vite] hot updated: /src/components/Brand.tsx","timestamp":1793192769632}
 {"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793192769632}
+{"level":"debug","message":"[vite] hot updated: /src/components/Brand.tsx","timestamp":1793192880351}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793192880351}
+{"level":"warn","message":"Error restoring session o: Transport request timed out\n    at chrome-extension://ejbalbakoplchlghecdalmeeeajnimhm/scripts/inpage.js:7:84733\n    at chrome-extension://ejbalbakoplchlghecdalmeeeajnimhm/scripts/inpage.js:7:83421","timestamp":1793193075385,"stack":"o: Transport request timed out\n    at chrome-extension://ejbalbakoplchlghecdalmeeeajnimhm/scripts/inpage.js:7:84733\n    at chrome-extension://ejbalbakoplchlghecdalmeeeajnimhm/scripts/inpage.js:7:83421"}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793193177694}

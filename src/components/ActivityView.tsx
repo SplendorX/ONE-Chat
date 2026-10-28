@@ -120,7 +120,7 @@ export function ActivityView({ user, session }: ActivityViewProps) {
             <div key={tx.id} className="flex items-center gap-3 px-5 py-3.5 border-b"
               style={{ borderColor: 'var(--border)' }}>
               <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
-                style={{ background: tx.asset === 'GIFT' ? 'rgba(255,180,100,0.15)' : isSent ? 'rgba(201,75,69,0.1)' : 'rgba(39,132,91,0.1)' }}>
+                style={{ background: tx.asset === 'GIFT' ? 'rgba(255,180,100,0.15)' : isSent ? 'var(--danger-bg)' : 'var(--success-bg)' }}>
                 {tx.asset === 'GIFT'
                   ? <Gift size={16} style={{ color: '#c9663a' }} />
                   : isSent

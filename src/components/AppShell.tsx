@@ -219,7 +219,7 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
             {TABS.map(({ id, label, Icon }) => (
               <button key={id} onClick={() => { setTab(id); setActiveConv(null); }}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all"
-                style={{ background: tab === id ? 'rgba(255,255,255,0.7)' : 'transparent', color: tab === id ? 'var(--ink)' : 'var(--muted)' }}>
+                style={{ background: tab === id ? 'var(--surface-strong)' : 'transparent', color: tab === id ? 'var(--ink)' : 'var(--muted)' }}>
                 <Icon size={17} />
                 {label}
               </button>
@@ -234,7 +234,7 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
           </nav>
 
           <div className="p-3 border-t" style={{ borderColor: 'var(--border)' }}>
-            <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl" style={{ background: 'rgba(255,255,255,0.5)' }}>
+            <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl" style={{ background: 'var(--surface-strong)' }}>
               <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
                 style={{ background: 'var(--ink)', color: 'white' }}>
                 {profile.initials}
@@ -289,7 +289,7 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
 
         {!activeConv && (
           <nav className="flex-shrink-0 flex items-center justify-around px-2 py-2 border-t"
-            style={{ background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderColor: 'var(--border)' }}>
+            style={{ background: 'var(--surface-card)', borderColor: 'var(--border)' }}>
             {TABS.map(({ id, label, Icon }) => (
               <button key={id} onClick={() => setTab(id)}
                 className="flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all min-w-0"

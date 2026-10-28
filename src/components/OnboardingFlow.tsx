@@ -87,8 +87,8 @@ export function OnboardingFlow({ session, onComplete }: OnboardingFlowProps) {
       style={{ background: 'var(--bg)' }}>
       {/* Background blobs */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden" aria-hidden>
-        <div style={{ position: 'absolute', top: '8%', left: '5%', width: 280, height: 280, borderRadius: '50%', background: 'radial-gradient(circle, rgba(133,177,237,0.18) 0%, transparent 70%)', filter: 'blur(60px)' }} />
-        <div style={{ position: 'absolute', bottom: '8%', right: '8%', width: 260, height: 260, borderRadius: '50%', background: 'radial-gradient(circle, rgba(220,207,189,0.35) 0%, transparent 70%)', filter: 'blur(58px)' }} />
+        <div style={{ position: 'absolute', top: '8%', left: '5%', width: 280, height: 280, borderRadius: '50%', background: 'radial-gradient(circle, var(--surface-muted) 0%, transparent 70%)', filter: 'blur(60px)', opacity: 0.45 }} />
+        <div style={{ position: 'absolute', bottom: '8%', right: '8%', width: 260, height: 260, borderRadius: '50%', background: 'radial-gradient(circle, var(--surface-muted) 0%, transparent 70%)', filter: 'blur(58px)', opacity: 0.45 }} />
       </div>
 
       <div className="relative z-10 w-full max-w-sm">
@@ -107,7 +107,7 @@ export function OnboardingFlow({ session, onComplete }: OnboardingFlowProps) {
         )}
 
         <div className="rounded-3xl p-7"
-          style={{ background: 'rgba(255,255,255,0.88)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', border: '1px solid var(--border)', boxShadow: '0 8px 32px rgba(48,43,38,0.07)' }}>
+          style={{ background: 'var(--surface-card)', border: '1px solid var(--border)', boxShadow: '0 8px 32px rgba(48,43,38,0.10)' }}>
 
           {/* ── Welcome ── */}
           {step === 'welcome' && (
@@ -297,7 +297,7 @@ export function OnboardingFlow({ session, onComplete }: OnboardingFlowProps) {
                     )}
                     <div className="px-3 py-2 rounded-xl text-xs max-w-xs"
                       style={{
-                        background: item.isUser ? 'var(--ink)' : 'rgba(255,255,255,0.72)',
+                        background: item.isUser ? 'var(--ink)' : 'var(--surface-bubble-in)',
                         color: item.isUser ? 'white' : 'var(--ink)',
                         border: item.isUser ? 'none' : '1px solid var(--border)',
                       }}>

@@ -93,7 +93,7 @@ export function ProfileView({ user, session: _session, theme, onThemeToggle, onS
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-semibold" style={{ color: 'var(--muted)' }}>USDC BALANCE</span>
             <span className="text-xs px-2 py-0.5 rounded-full"
-              style={{ background: 'rgba(39,132,91,0.10)', color: 'var(--success)' }}>Arc Network</span>
+              style={{ background: 'var(--success-bg)', color: 'var(--success)' }}>Arc Network</span>
           </div>
           <div className="display text-3xl font-700 tabular-nums mb-1" style={{ color: 'var(--ink)', letterSpacing: '-0.03em' }}>
             {balanceLoading
@@ -194,7 +194,7 @@ export function ProfileView({ user, session: _session, theme, onThemeToggle, onS
           className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border transition-all"
           style={{ background: 'var(--surface-strong)', borderColor: 'var(--border)', color: 'var(--danger)' }}>
           <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: 'rgba(201,75,69,0.1)' }}>
+            style={{ background: 'var(--danger-bg)' }}>
             <LogOut size={15} style={{ color: 'var(--danger)' }} />
           </div>
           <span className="flex-1 text-sm font-medium text-left">Sign out</span>

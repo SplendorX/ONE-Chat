@@ -10,16 +10,20 @@
   --surface: rgba(255, 255, 255, 0.72);
   --surface-strong: rgba(255, 255, 255, 0.92);
   --surface-muted: #EDE5D8;
+  --surface-card: rgba(255, 255, 255, 0.92);   /* opaque card bg — safe on any bg */
+  --surface-overlay: rgba(255, 255, 255, 0.88); /* modal / sheet overlay */
+  --surface-input: #F5F0EA;                     /* input field fill */
+  --surface-bubble-in: rgba(255, 255, 255, 0.9);/* incoming message bubble */
 
   /* Text */
   --ink: #302B26;
   --ink-2: #3d3830;
-  --muted: #857D73;
-  --subtle: #a09890;
+  --muted: #6b6259;   /* bumped up from 857D73 for WCAG AA on white */
+  --subtle: #8a8078;  /* bumped up from a09890 */
 
   /* Borders */
-  --border: rgba(48, 43, 38, 0.10);
-  --border-strong: rgba(48, 43, 38, 0.24);
+  --border: rgba(48, 43, 38, 0.12);
+  --border-strong: rgba(48, 43, 38, 0.28);
 
   /* Actions */
   --accent: #302B26;
@@ -28,25 +32,32 @@
   --accent-beige-hover: #DCCFBD;
 
   /* Semantic */
-  --success: #27845B;
+  --success: #1f7a52;
+  --success-bg: rgba(31, 122, 82, 0.10);
   --danger: #C94B45;
+  --danger-bg: rgba(201, 75, 69, 0.10);
+  --warning: #b45309;
   --focus: #DCCFBD;
 }
 
 .dark {
-  --bg: #171614;
-  --bg-warm: #1e1c19;
-  --surface: rgba(34, 32, 29, 0.85);
-  --surface-strong: rgba(44, 41, 37, 0.95);
-  --surface-muted: #22201D;
+  --bg: #141210;
+  --bg-warm: #1a1815;
+  --surface: rgba(30, 28, 25, 0.90);
+  --surface-strong: rgba(38, 35, 31, 0.98);
+  --surface-muted: #242018;
+  --surface-card: #1e1c19;                      /* solid dark card */
+  --surface-overlay: #252219;                   /* modal / sheet in dark */
+  --surface-input: #2a2722;                     /* input field fill in dark */
+  --surface-bubble-in: #2e2b26;                 /* incoming message bubble dark */
 
-  --ink: #F5F0EA;
-  --ink-2: #d4cfc8;
-  --muted: #9e9890;
-  --subtle: #6e6a64;
+  --ink: #F0EBE3;
+  --ink-2: #cdc8c0;
+  --muted: #a09890;   /* lighter than light-mode muted to be visible on dark bg */
+  --subtle: #706a62;
 
-  --border: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.18);
+  --border: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.20);
 
   --accent: #EDE5D8;
   --accent-hover: #FAF8F4;
@@ -54,7 +65,10 @@
   --accent-beige-hover: #3d3830;
 
   --success: #34a36d;
+  --success-bg: rgba(52, 163, 109, 0.12);
   --danger: #e05a54;
+  --danger-bg: rgba(224, 90, 84, 0.12);
+  --warning: #d97706;
   --focus: #4a4238;
 }
 
