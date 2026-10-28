@@ -7,7 +7,8 @@ const BLOCKCHAIN = 'ARC-TESTNET';
 const RESERVED = ['admin', 'allie', 'onechat', 'support', 'help', 'system', 'root', 'circle', 'arc'];
 
 function checkEnv(): string | null {
-  const missing = ['VITE_SUPABASE_URL', 'SUPABASE_SERVICE_KEY', 'CIRCLE_API_KEY', 'CIRCLE_ENTITY_SECRET'].filter((k) => !process.env[k]);
+  const missing = ['VITE_SUPABASE_URL', 'SUPABASE_SERVICE_KEY', 'CIRCLE_API_KEY', 'CIRCLE_ENTITY_SECRET']
+    .filter((k) => !process.env[k]);
   return missing.length ? `Server misconfigured — missing: ${missing.join(', ')}` : null;
 }
 
