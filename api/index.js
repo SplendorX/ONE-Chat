@@ -42189,9 +42189,9 @@ async function handler(req, res) {
       if (saveErr) throw saveErr;
       res.json({ wallet: saved });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[wallet/provision] raw error:", JSON.stringify(err, Object.getOwnPropertyNames(err instanceof Error ? err : Object(err))));
+      const msg = err instanceof Error ? err.message : typeof err === "object" && err !== null ? JSON.stringify(err) : String(err);
       const detail = err?.response?.data;
-      console.error("[wallet/provision]", msg, detail ?? "");
       res.status(500).json({ error: msg, detail });
     }
     return;
