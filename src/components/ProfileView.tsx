@@ -101,9 +101,7 @@ export function ProfileView({ user, session: _session, theme, onThemeToggle, onS
               : balance !== null ? `$${formatUSDC(parseFloat(balance))}` : '—'
             }
           </div>
-          {walletAddress
-            ? <p className="text-xs font-mono truncate" style={{ color: 'var(--muted)' }}>{walletAddress}</p>
-            : !balanceLoading && (
+          {!walletAddress && !balanceLoading && (
               <div className="mt-2 space-y-2">
                 <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--warning, #b45309)' }}>
                   <AlertTriangle size={12} /> Wallet not set up
@@ -118,8 +116,7 @@ export function ProfileView({ user, session: _session, theme, onThemeToggle, onS
                     : <><RefreshCw size={11} /> Set up wallet</>}
                 </button>
               </div>
-            )
-          }
+          )}
           {!walletAddress && balanceLoading && null}
           {walletAddress && (
             <div className="mt-2 flex items-center gap-1.5">
