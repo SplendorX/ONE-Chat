@@ -186,5 +186,65 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
+  // POST /chat/allie
+  if (path === '/chat/allie' && req.method === 'POST') {
+    const user = await getUser(req, res); if (!user) return;
+    const { message, history } = req.body as {
+      message?: string;
+      history?: { role: 'user' | 'assistant'; content: string }[];
+    };
+    if (!message) { res.status(400).json({ error: 'message required' }); return; }
+
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      // Fallback: deterministic responses when no OpenAI key
+      const t = message.toLowerCase();
+      let reply = "I'm ALLIE, your ONE Chat financial assistant. I can help you send USDC, check your balance, and manage payments.";
+      if (t.includes('balance')) reply = 'Check your USDC balance in the Activity tab — it shows your live Arc Network balance.';
+      else if (t.includes('send') || t.includes('transfer')) reply = "Use the $ button in any conversation to send USDC. I'll guide you through it step by step.";
+      else if (t.includes('help')) reply = 'I can help with: sending USDC, checking balances, explaining transactions, and managing your ONE identity. What would you like to do?';
+      res.json({ reply }); return;
+    }
+
+    try {
+      // Get user's balance for context
+      const { data: wallet } = await db().from('wallets').select('circle_wallet_id, address').eq('user_id', user.userId).maybeSingle();
+      let balanceContext = '';
+      if (wallet) {
+        try {
+          const balRes = await circle().getWalletTokenBalance({ id: wallet.circle_wallet_id });
+          const usdc = (balRes.data?.tokenBalances ?? []).find((b: { token?: { symbol?: string } }) => b.token?.symbol === 'USDC');
+          if (usdc) balanceContext = `\nUser's current USDC balance: $${usdc.amount} on Arc Network.`;
+        } catch { /* ignore */ }
+      }
+
+      const systemPrompt = `You are ALLIE, the AI financial assistant for ONE Chat — a messaging app where users send USDC payments using human-readable .one identities on Arc Network (a blockchain where USDC is the native gas token).${balanceContext}
+
+You help users: send USDC to contacts by .one handle, understand their transaction history, check balances, split bills, and manage payments. Be concise, friendly, and practical. When a user wants to send money, tell them to use the $ button in the conversation. Never make up transaction details.`;
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...(history ?? []).slice(-8),
+            { role: 'user', content: message },
+          ],
+          max_tokens: 300,
+          temperature: 0.7,
+        }),
+      });
+      if (!response.ok) throw new Error(`OpenAI error: ${response.status}`);
+      const data = await response.json() as { choices: { message: { content: string } }[] };
+      const reply = data.choices[0]?.message?.content ?? 'Sorry, I could not process that.';
+      res.json({ reply });
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+    return;
+  }
+
   res.status(404).json({ error: `Not found: ${path}` });
 }

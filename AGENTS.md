@@ -26,7 +26,8 @@ One Chat is a premium messaging application where users can chat, send USDC, req
 - **Phase 4 (COMPLETE):** Group finance — bill split cards with participant tracking, channels with creator gifting (GiftSheet)
 - **Phase 5 (TODO):** ALLIE: typed function registry, group @ALLIE invocation, Pro entitlement gate, LLM integration
 - **Phase 6 (TODO):** Premium desktop enforcement, communities, advanced search, ALLIE side panel
-- **Phase 7 (TODO):** Security hardening, Circle wallet integration (real USDC transfers), production readiness
+- **Phase 7 (TODO):** Security hardening, production readiness
+- **Phase 8 (FUTURE):** End-to-end encryption — Phase 1: AES-GCM per-conversation keys with password-based backup (solves plaintext-in-DB and key loss). Phase 2: per-device keypairs via tweetnacl-js + key distribution (solves multi-device). Phase 3: full X3DH + double ratchet via libsignal (forward secrecy, metadata protection). Decision: defer until after core social layer is stable. Key tradeoff accepted for v1: Supabase RLS policies enforce access control; messages stored as plaintext server-side.
 
 ## Key Files
 

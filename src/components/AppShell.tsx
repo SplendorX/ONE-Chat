@@ -250,7 +250,7 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
           {tab === 'chats' && <InboxView conversations={conversations} activeConvId={activeConv?.id} session={session} onSelect={setActiveConv} onConversationCreated={(conv) => { if (!conversations.find((c) => c.id === conv.id)) setConversations((p) => [conv, ...p]); setActiveConv(conv); }} />}
           {tab === 'contacts' && <ContactsView session={session} onStartChat={(conv) => { setTab('chats'); setActiveConv(conv); }} />}
           {tab === 'activity' && <ActivityView user={profile} session={session} />}
-          {tab === 'channels' && <ChannelsView user={profile} />}
+          {tab === 'channels' && <ChannelsView user={profile} session={session} />}
           {tab === 'you' && <ProfileView user={profile} session={session} theme={theme} onThemeToggle={onThemeToggle} onSignOut={onSignOut} />}
         </div>
 
@@ -279,7 +279,7 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
               {tab === 'chats' && <InboxView conversations={conversations} activeConvId={undefined} session={session} onSelect={setActiveConv} onConversationCreated={(conv) => { if (!conversations.find((c) => c.id === conv.id)) setConversations((p) => [conv, ...p]); setActiveConv(conv); }} />}
               {tab === 'contacts' && <ContactsView session={session} onStartChat={(conv) => { setTab('chats'); setActiveConv(conv); }} />}
               {tab === 'activity' && <ActivityView user={profile} session={session} />}
-              {tab === 'channels' && <ChannelsView user={profile} />}
+              {tab === 'channels' && <ChannelsView user={profile} session={session} />}
               {tab === 'you' && <ProfileView user={profile} session={session} theme={theme} onThemeToggle={onThemeToggle} onSignOut={onSignOut} />}
             </>
           )}

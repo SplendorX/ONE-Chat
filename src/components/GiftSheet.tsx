@@ -1,35 +1,51 @@
 import { useState } from 'react';
-import { X, Gift, ArrowRight, Check } from 'lucide-react';
+import type { Session } from '@supabase/supabase-js';
+import { X, Gift, ArrowRight, Check, Loader2, AlertCircle } from 'lucide-react';
 import { formatUSDC } from '../lib/utils';
+import { sendUsdc } from '../lib/api';
 
 interface GiftSheetProps {
   creatorOneId: string;
   creatorName: string;
   postExcerpt: string;
+  session: Session;
+  conversationId?: string;
   onConfirm: (amount: number, message: string) => void;
   onClose: () => void;
 }
 
 const GIFT_AMOUNTS = [1, 2, 5, 10];
-type Step = 'pick' | 'review' | 'processing' | 'done';
+type Step = 'pick' | 'review' | 'processing' | 'done' | 'error';
 
-export function GiftSheet({ creatorOneId, creatorName, postExcerpt, onConfirm, onClose }: GiftSheetProps) {
+export function GiftSheet({ creatorOneId, creatorName, postExcerpt, session: _session, conversationId, onConfirm, onClose }: GiftSheetProps) {
   const [amount, setAmount] = useState<number>(5);
   const [customAmount, setCustomAmount] = useState('');
   const [message, setMessage] = useState('');
   const [isPublic, setIsPublic] = useState(false);
   const [step, setStep] = useState<Step>('pick');
+  const [errorMsg, setErrorMsg] = useState('');
 
   const finalAmount = customAmount ? parseFloat(customAmount) || 0 : amount;
 
-  function proceed() {
+  async function proceed() {
     if (step === 'pick') { setStep('review'); return; }
     if (step === 'review') {
       setStep('processing');
-      setTimeout(() => {
+      try {
+        // Use a synthetic conversation ID for gift payments if none provided
+        const convId = conversationId ?? `gift-${creatorOneId}-${Date.now()}`;
+        await sendUsdc({
+          recipientHandle: creatorOneId,
+          amount: finalAmount.toFixed(2),
+          conversationId: convId,
+          note: message || `Gift to ${creatorOneId}`,
+        });
         setStep('done');
-        setTimeout(() => onConfirm(finalAmount, message), 1000);
-      }, 1400);
+        setTimeout(() => onConfirm(finalAmount, message), 1500);
+      } catch (err) {
+        setErrorMsg(err instanceof Error ? err.message : 'Payment failed');
+        setStep('error');
+      }
     }
   }
 
@@ -66,7 +82,6 @@ export function GiftSheet({ creatorOneId, creatorName, postExcerpt, onConfirm, o
               </button>
             </div>
 
-            {/* Creator + post */}
             <div className="rounded-2xl p-3 mb-5 border" style={{ background: 'var(--surface-muted)', borderColor: 'var(--border)' }}>
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
@@ -78,7 +93,6 @@ export function GiftSheet({ creatorOneId, creatorName, postExcerpt, onConfirm, o
               <p className="text-xs leading-relaxed" style={{ color: 'var(--muted)' }}>"{postExcerpt}"</p>
             </div>
 
-            {/* Amount picker */}
             <div className="grid grid-cols-4 gap-2 mb-4">
               {GIFT_AMOUNTS.map((a) => (
                 <button key={a} onClick={() => { setAmount(a); setCustomAmount(''); }}
@@ -93,39 +107,26 @@ export function GiftSheet({ creatorOneId, creatorName, postExcerpt, onConfirm, o
               ))}
             </div>
 
-            <input
-              type="number"
-              value={customAmount}
-              onChange={(e) => setCustomAmount(e.target.value)}
-              placeholder="Custom amount"
-              className="w-full px-4 py-3 rounded-xl text-sm outline-none mb-4"
-              style={{ background: 'var(--surface-muted)', border: `1px solid ${customAmount ? 'var(--border-strong)' : 'var(--border)'}`, color: 'var(--ink)' }}
-            />
+            <input type="number" value={customAmount} onChange={(e) => setCustomAmount(e.target.value)}
+              placeholder="Custom amount" className="w-full px-4 py-3 rounded-xl text-sm outline-none mb-4"
+              style={{ background: 'var(--surface-muted)', border: `1px solid ${customAmount ? 'var(--border-strong)' : 'var(--border)'}`, color: 'var(--ink)' }} />
 
-            <input
-              type="text"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Add a message (optional)"
-              maxLength={120}
+            <input type="text" value={message} onChange={(e) => setMessage(e.target.value)}
+              placeholder="Add a message (optional)" maxLength={120}
               className="w-full px-4 py-3 rounded-xl text-sm outline-none mb-3"
-              style={{ background: 'var(--surface-muted)', border: '1px solid var(--border)', color: 'var(--ink)' }}
-            />
+              style={{ background: 'var(--surface-muted)', border: '1px solid var(--border)', color: 'var(--ink)' }} />
 
             <label className="flex items-center gap-2 mb-5 cursor-pointer select-none">
-              <div
-                onClick={() => setIsPublic((v) => !v)}
+              <div onClick={() => setIsPublic((v) => !v)}
                 className="w-9 h-5 rounded-full relative transition-all"
                 style={{ background: isPublic ? 'var(--ink)' : 'var(--border-strong)' }}>
                 <div className="absolute top-0.5 w-4 h-4 rounded-full transition-all"
                   style={{ background: 'white', left: isPublic ? '20px' : '2px' }} />
               </div>
-              <span className="text-sm" style={{ color: 'var(--ink)' }}>
-                Share my identity publicly
-              </span>
+              <span className="text-sm" style={{ color: 'var(--ink)' }}>Share my identity publicly</span>
             </label>
 
-            <button onClick={proceed} disabled={finalAmount <= 0}
+            <button onClick={() => { void proceed(); }} disabled={finalAmount <= 0}
               className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-semibold text-sm disabled:opacity-40"
               style={{ background: 'var(--ink)', color: 'var(--bg)' }}>
               Send ${formatUSDC(finalAmount)} gift <ArrowRight size={14} />
@@ -159,7 +160,7 @@ export function GiftSheet({ creatorOneId, creatorName, postExcerpt, onConfirm, o
             <p className="text-xs text-center mb-4" style={{ color: 'var(--subtle)' }}>
               Gifts are voluntary payments and cannot be reversed once confirmed.
             </p>
-            <button onClick={proceed}
+            <button onClick={() => { void proceed(); }}
               className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-semibold text-sm"
               style={{ background: 'var(--ink)', color: 'var(--bg)' }}>
               Confirm gift <ArrowRight size={14} />
@@ -171,10 +172,10 @@ export function GiftSheet({ creatorOneId, creatorName, postExcerpt, onConfirm, o
           <div className="text-center py-10 space-y-4">
             <div className="w-14 h-14 rounded-full mx-auto flex items-center justify-center"
               style={{ background: 'var(--surface-muted)' }}>
-              <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
-                style={{ borderColor: 'var(--ink)', borderTopColor: 'transparent' }} />
+              <Loader2 size={24} className="animate-spin" style={{ color: 'var(--ink)' }} />
             </div>
-            <p className="font-semibold" style={{ color: 'var(--ink)' }}>Sending gift</p>
+            <p className="font-semibold" style={{ color: 'var(--ink)' }}>Sending gift…</p>
+            <p className="text-sm" style={{ color: 'var(--muted)' }}>Processing on Arc Network</p>
           </div>
         )}
 
@@ -190,6 +191,24 @@ export function GiftSheet({ creatorOneId, creatorName, postExcerpt, onConfirm, o
                 ${formatUSDC(finalAmount)} USDC to {creatorOneId}
               </p>
             </div>
+          </div>
+        )}
+
+        {step === 'error' && (
+          <div className="text-center py-10 space-y-4">
+            <div className="w-16 h-16 rounded-full mx-auto flex items-center justify-center"
+              style={{ background: 'rgba(201,75,69,0.1)' }}>
+              <AlertCircle size={28} style={{ color: 'var(--danger)' }} />
+            </div>
+            <div>
+              <p className="font-semibold text-lg" style={{ color: 'var(--ink)' }}>Gift failed</p>
+              <p className="text-sm mt-1" style={{ color: 'var(--muted)' }}>{errorMsg}</p>
+            </div>
+            <button onClick={() => setStep('pick')}
+              className="px-6 py-2.5 rounded-xl text-sm font-medium"
+              style={{ background: 'var(--surface-muted)', color: 'var(--ink)', border: '1px solid var(--border)' }}>
+              Try again
+            </button>
           </div>
         )}
       </div>

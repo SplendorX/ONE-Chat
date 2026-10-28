@@ -93,6 +93,10 @@ export async function sendUsdc(params: {
   );
 }
 
+export async function chatAllie(message: string, history: { role: 'user' | 'assistant'; content: string }[]) {
+  return post<{ reply: string }>('/chat/allie', { message, history });
+}
+
 export async function getPaymentStatus(txId: string) {
   return get<{
     transaction: {

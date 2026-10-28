@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Radio, Heart, Gift, Share2 } from 'lucide-react';
+import type { Session } from '@supabase/supabase-js';
 import type { User, Channel, ChannelPost } from '../types';
 import { CHANNELS } from '../lib/mockData';
 import { formatTime, formatUSDC } from '../lib/utils';
@@ -7,9 +8,10 @@ import { GiftSheet } from './GiftSheet';
 
 interface ChannelsViewProps {
   user: User;
+  session: Session;
 }
 
-export function ChannelsView({ user: _user }: ChannelsViewProps) {
+export function ChannelsView({ user: _user, session }: ChannelsViewProps) {
   const [channels, setChannels] = useState<Channel[]>(CHANNELS);
   const [giftTarget, setGiftTarget] = useState<{ post: ChannelPost; channel: Channel } | null>(null);
   const [activeTab, setActiveTab] = useState<'following' | 'discover'>('following');
@@ -75,6 +77,7 @@ export function ChannelsView({ user: _user }: ChannelsViewProps) {
           creatorOneId={giftTarget.channel.creatorOneId}
           creatorName={giftTarget.channel.name}
           postExcerpt={giftTarget.post.content.slice(0, 80) + '...'}
+          session={session}
           onConfirm={(amount, message) => handleGiftSent(amount, message, giftTarget.channel.id, giftTarget.post.id)}
           onClose={() => setGiftTarget(null)}
         />

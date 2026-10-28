@@ -4,6 +4,7 @@ import { ArrowLeft, Phone, MoreHorizontal, Send, Paperclip, DollarSign, Check, C
 import type { Conversation, Message, User } from '../types';
 import { supabase } from '../lib/supabase';
 import { formatDate, formatTimestamp } from '../lib/utils';
+import { chatAllie } from '../lib/api';
 import { PaymentSheet } from './PaymentSheet';
 
 interface ConversationViewProps {
@@ -24,15 +25,7 @@ function groupByDate(messages: Message[]) {
   return groups;
 }
 
-// ALLIE deterministic command responses
-function allieResponse(text: string): string {
-  const t = text.toLowerCase();
-  if (t.includes('balance')) return 'Your USDC balance is visible in the Activity tab. Open it to see live figures.';
-  if (t.includes('send') || t.includes('transfer')) return 'Use the $ button in the composer to send USDC. I\'ll guide you through it.';
-  if (t.includes('split') || t.includes('bill')) return 'Bill splitting is coming in a group conversation. Start one from Contacts.';
-  if (t.includes('help') || t.includes('what can you')) return 'I can help you send USDC, check your balance, split bills, and manage savings goals. What would you like to do?';
-  return 'I\'m working on understanding that. Try: check balance, send USDC, or split a bill.';
-}
+
 
 export function ConversationView({ conversation, user, session, onBack }: ConversationViewProps) {
   const isAllie = conversation.id === 'allie';
@@ -56,6 +49,7 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
   const [showPayment, setShowPayment] = useState(false);
   const [typingTimeout, setTypingTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [otherTyping, setOtherTyping] = useState(false);
+  const [allieHistory, setAllieHistory] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Scroll to bottom on new messages
@@ -143,37 +137,52 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
     setText('');
     setSending(true);
 
-    // ALLIE: deterministic response, no DB write
+    // ALLIE: call real AI endpoint
     if (isAllie) {
+      const ts = Date.now();
       const userMsg: Message = {
-        id: `local-${Date.now()}`,
+        id: `local-${ts}`,
         conversationId: 'allie',
         senderId: session.user.id,
         senderName: user.displayName,
         type: 'text',
         content,
-        createdAt: new Date(),
+        createdAt: new Date(ts),
         isOwn: true,
         deliveryState: 'sent',
       };
       setMessages((prev) => [...prev, userMsg]);
-      setTimeout(() => {
-        setOtherTyping(true);
-        setTimeout(() => {
-          setOtherTyping(false);
-          setMessages((prev) => [...prev, {
-            id: `allie-${Date.now()}`,
-            conversationId: 'allie',
-            senderId: 'allie',
-            senderName: 'ALLIE',
-            type: 'text',
-            content: allieResponse(content),
-            createdAt: new Date(),
-            isOwn: false,
-            deliveryState: 'read',
-          }]);
-        }, 1200);
-      }, 300);
+      setOtherTyping(true);
+      const newHistory: { role: 'user' | 'assistant'; content: string }[] = [...allieHistory, { role: 'user', content }];
+      try {
+        const { reply } = await chatAllie(content, allieHistory);
+        setAllieHistory([...newHistory, { role: 'assistant', content: reply }]);
+        setOtherTyping(false);
+        setMessages((prev) => [...prev, {
+          id: `allie-${Date.now()}`,
+          conversationId: 'allie',
+          senderId: 'allie',
+          senderName: 'ALLIE',
+          type: 'text',
+          content: reply,
+          createdAt: new Date(Date.now()),
+          isOwn: false,
+          deliveryState: 'read',
+        }]);
+      } catch {
+        setOtherTyping(false);
+        setMessages((prev) => [...prev, {
+          id: `allie-err-${Date.now()}`,
+          conversationId: 'allie',
+          senderId: 'allie',
+          senderName: 'ALLIE',
+          type: 'text',
+          content: "I'm having trouble connecting right now. Please try again in a moment.",
+          createdAt: new Date(Date.now()),
+          isOwn: false,
+          deliveryState: 'read',
+        }]);
+      }
       setSending(false);
       return;
     }
