@@ -1,5 +1,5 @@
 {
-  "buildCommand": "bun run build && bunx esbuild server/vercel-handler.ts --bundle --platform=node --format=esm --outfile=api/index.js --external:@vercel/node",
+  "buildCommand": "bun run build",
   "installCommand": "bun install",
   "outputDirectory": "dist",
   "framework": "vite",
