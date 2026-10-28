@@ -195,9 +195,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     };
     if (!message) { res.status(400).json({ error: 'message required' }); return; }
 
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
-      // Fallback: deterministic responses when no OpenAI key
+      // Fallback: deterministic responses when no Anthropic key is configured
       const t = message.toLowerCase();
       let reply = "I'm ALLIE, your ONE Chat financial assistant. I can help you send USDC, check your balance, and manage payments.";
       if (t.includes('balance')) reply = 'Check your USDC balance in the Activity tab — it shows your live Arc Network balance.';
@@ -207,38 +207,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     try {
-      // Get user's balance for context
+      // Fetch user's live USDC balance to give ALLIE accurate context
       const { data: wallet } = await db().from('wallets').select('circle_wallet_id, address').eq('user_id', user.userId).maybeSingle();
       let balanceContext = '';
       if (wallet) {
         try {
           const balRes = await circle().getWalletTokenBalance({ id: wallet.circle_wallet_id });
           const usdc = (balRes.data?.tokenBalances ?? []).find((b: { token?: { symbol?: string } }) => b.token?.symbol === 'USDC');
-          if (usdc) balanceContext = `\nUser's current USDC balance: $${usdc.amount} on Arc Network.`;
-        } catch { /* ignore */ }
+          if (usdc) balanceContext = `\nThe user's current USDC balance is $${usdc.amount} on Arc Network.`;
+        } catch { /* ignore — ALLIE still works without balance context */ }
       }
 
-      const systemPrompt = `You are ALLIE, the AI financial assistant for ONE Chat — a messaging app where users send USDC payments using human-readable .one identities on Arc Network (a blockchain where USDC is the native gas token).${balanceContext}
+      const systemPrompt = `You are ALLIE, the AI financial assistant embedded in ONE Chat — a messaging app where users send USDC payments using human-readable .one identities on Arc Network (a blockchain where USDC is the native gas token, so there is no separate ETH or gas token to worry about).${balanceContext}
 
-You help users: send USDC to contacts by .one handle, understand their transaction history, check balances, split bills, and manage payments. Be concise, friendly, and practical. When a user wants to send money, tell them to use the $ button in the conversation. Never make up transaction details.`;
+Your role: help users send USDC to contacts by .one handle, understand transaction history, check balances, split bills, and manage payments. Be concise, warm, and practical — this is a chat interface so keep replies short (2–4 sentences). When a user wants to send money, direct them to the $ button in any conversation. Never invent transaction details, amounts, or addresses. If asked something outside finance or ONE Chat, politely redirect.`;
 
-      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: 'claude-3-5-haiku-20241022',
+          max_tokens: 400,
+          system: systemPrompt,
           messages: [
-            { role: 'system', content: systemPrompt },
-            ...(history ?? []).slice(-8),
+            ...(history ?? []).slice(-10),
             { role: 'user', content: message },
           ],
-          max_tokens: 300,
-          temperature: 0.7,
         }),
       });
-      if (!response.ok) throw new Error(`OpenAI error: ${response.status}`);
-      const data = await response.json() as { choices: { message: { content: string } }[] };
-      const reply = data.choices[0]?.message?.content ?? 'Sorry, I could not process that.';
+      if (!response.ok) {
+        const errBody = await response.text();
+        throw new Error(`Anthropic error ${response.status}: ${errBody}`);
+      }
+      const data = await response.json() as { content: { type: string; text: string }[] };
+      const reply = data.content.find((c) => c.type === 'text')?.text ?? 'Sorry, I could not process that.';
       res.json({ reply });
     } catch (err) {
       res.status(500).json({ error: err instanceof Error ? err.message : String(err) });

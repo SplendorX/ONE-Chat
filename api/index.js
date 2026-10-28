@@ -42301,7 +42301,7 @@ async function handler(req, res) {
       res.status(400).json({ error: "message required" });
       return;
     }
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
       const t = message.toLowerCase();
       let reply = "I'm ALLIE, your ONE Chat financial assistant. I can help you send USDC, check your balance, and manage payments.";
@@ -42319,30 +42319,36 @@ async function handler(req, res) {
           const balRes = await circle().getWalletTokenBalance({ id: wallet.circle_wallet_id });
           const usdc = (balRes.data?.tokenBalances ?? []).find((b) => b.token?.symbol === "USDC");
           if (usdc) balanceContext = `
-User's current USDC balance: $${usdc.amount} on Arc Network.`;
+The user's current USDC balance is $${usdc.amount} on Arc Network.`;
         } catch {
         }
       }
-      const systemPrompt = `You are ALLIE, the AI financial assistant for ONE Chat \u2014 a messaging app where users send USDC payments using human-readable .one identities on Arc Network (a blockchain where USDC is the native gas token).${balanceContext}
+      const systemPrompt = `You are ALLIE, the AI financial assistant embedded in ONE Chat \u2014 a messaging app where users send USDC payments using human-readable .one identities on Arc Network (a blockchain where USDC is the native gas token, so there is no separate ETH or gas token to worry about).${balanceContext}
 
-You help users: send USDC to contacts by .one handle, understand their transaction history, check balances, split bills, and manage payments. Be concise, friendly, and practical. When a user wants to send money, tell them to use the $ button in the conversation. Never make up transaction details.`;
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+Your role: help users send USDC to contacts by .one handle, understand transaction history, check balances, split bills, and manage payments. Be concise, warm, and practical \u2014 this is a chat interface so keep replies short (2\u20134 sentences). When a user wants to send money, direct them to the $ button in any conversation. Never invent transaction details, amounts, or addresses. If asked something outside finance or ONE Chat, politely redirect.`;
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01"
+        },
         body: JSON.stringify({
-          model: "gpt-4o-mini",
+          model: "claude-3-5-haiku-20241022",
+          max_tokens: 400,
+          system: systemPrompt,
           messages: [
-            { role: "system", content: systemPrompt },
-            ...(history ?? []).slice(-8),
+            ...(history ?? []).slice(-10),
             { role: "user", content: message }
-          ],
-          max_tokens: 300,
-          temperature: 0.7
+          ]
         })
       });
-      if (!response.ok) throw new Error(`OpenAI error: ${response.status}`);
+      if (!response.ok) {
+        const errBody = await response.text();
+        throw new Error(`Anthropic error ${response.status}: ${errBody}`);
+      }
       const data = await response.json();
-      const reply = data.choices[0]?.message?.content ?? "Sorry, I could not process that.";
+      const reply = data.content.find((c) => c.type === "text")?.text ?? "Sorry, I could not process that.";
       res.json({ reply });
     } catch (err) {
       res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
