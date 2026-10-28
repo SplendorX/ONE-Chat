@@ -1,20 +1,32 @@
 import { useState } from 'react';
 import { Search, Plus } from 'lucide-react';
+import type { Session } from '@supabase/supabase-js';
 import type { Conversation } from '../types';
 import { formatTime } from '../lib/utils';
+import { NewConversationModal } from './NewConversationModal';
 
 interface InboxViewProps {
   conversations: Conversation[];
   activeConvId?: string | null;
+  session: Session;
   onSelect: (conv: Conversation) => void;
+  onConversationCreated: (conv: Conversation) => void;
 }
 
-export function InboxView({ conversations, activeConvId, onSelect }: InboxViewProps) {
+export function InboxView({ conversations, activeConvId, session, onSelect, onConversationCreated }: InboxViewProps) {
   const [search, setSearch] = useState('');
+  const [showNew, setShowNew] = useState(false);
+
   const filtered = conversations.filter((c) =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
     (c.oneId || '').toLowerCase().includes(search.toLowerCase())
   );
+
+  function handleCreated(conv: Conversation) {
+    onConversationCreated(conv);
+    setShowNew(false);
+    onSelect(conv);
+  }
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -24,9 +36,12 @@ export function InboxView({ conversations, activeConvId, onSelect }: InboxViewPr
         <h1 className="display text-xl font-700" style={{ color: 'var(--ink)', letterSpacing: '-0.03em' }}>
           Chats
         </h1>
-        <button className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
-          style={{ background: 'var(--surface-muted)' }}>
-          <Plus size={16} style={{ color: 'var(--ink)' }} />
+        <button
+          onClick={() => setShowNew(true)}
+          className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
+          style={{ background: 'var(--ink)', color: 'white' }}
+          title="New conversation">
+          <Plus size={16} />
         </button>
       </div>
 
@@ -49,7 +64,19 @@ export function InboxView({ conversations, activeConvId, onSelect }: InboxViewPr
       {/* List */}
       <div className="flex-1 overflow-y-auto px-2 pb-4">
         {filtered.length === 0 ? (
-          <div className="text-center py-16 text-sm" style={{ color: 'var(--muted)' }}>No conversations found</div>
+          <div className="text-center py-16 space-y-3">
+            <p className="text-sm" style={{ color: 'var(--muted)' }}>
+              {conversations.length === 0 ? 'No conversations yet' : 'No conversations found'}
+            </p>
+            {conversations.length === 0 && (
+              <button
+                onClick={() => setShowNew(true)}
+                className="text-xs px-4 py-2 rounded-full transition-all"
+                style={{ background: 'var(--ink)', color: 'white' }}>
+                Start your first conversation
+              </button>
+            )}
+          </div>
         ) : (
           <div className="space-y-0.5">
             {filtered.map((conv) => (
@@ -58,6 +85,14 @@ export function InboxView({ conversations, activeConvId, onSelect }: InboxViewPr
           </div>
         )}
       </div>
+
+      {showNew && (
+        <NewConversationModal
+          session={session}
+          onClose={() => setShowNew(false)}
+          onCreated={handleCreated}
+        />
+      )}
     </div>
   );
 }
@@ -67,12 +102,10 @@ function ConvRow({ conv, isActive, onSelect }: { conv: Conversation; isActive: b
     <button
       onClick={() => onSelect(conv)}
       className="w-full flex items-center gap-3 px-3 py-3 rounded-2xl transition-all text-left"
-      style={{ background: isActive ? 'var(--surface-muted, #EDE5D8)' : 'transparent' }}
-    >
-      {/* Avatar */}
+      style={{ background: isActive ? 'var(--surface-muted)' : 'transparent' }}>
       <div className="relative flex-shrink-0">
         <div className="w-11 h-11 rounded-full flex items-center justify-center text-sm font-semibold"
-          style={{ background: 'var(--surface-muted, #EDE5D8)', color: 'var(--ink)' }}>
+          style={{ background: 'var(--surface-muted)', color: 'var(--ink)' }}>
           {conv.initials}
         </div>
         {conv.isOnline && (
@@ -80,8 +113,6 @@ function ConvRow({ conv, isActive, onSelect }: { conv: Conversation; isActive: b
             style={{ background: 'var(--success)', borderColor: 'var(--bg)' }} />
         )}
       </div>
-
-      {/* Info */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-0.5">
           <span className="text-sm font-semibold truncate" style={{ color: 'var(--ink)' }}>
