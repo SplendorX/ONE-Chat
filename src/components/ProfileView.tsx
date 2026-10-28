@@ -15,6 +15,7 @@ interface ProfileViewProps {
 
 export function ProfileView({ user, session: _session, theme, onThemeToggle, onSignOut }: ProfileViewProps) {
   const [copied, setCopied] = useState(false);
+  const [copiedAddress, setCopiedAddress] = useState(false);
   const [balance, setBalance] = useState<string | null>(null);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(true);
@@ -48,6 +49,13 @@ export function ProfileView({ user, session: _session, theme, onThemeToggle, onS
     navigator.clipboard.writeText(user.oneId).catch(() => {});
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  function copyAddress() {
+    if (!walletAddress) return;
+    navigator.clipboard.writeText(walletAddress).catch(() => {});
+    setCopiedAddress(true);
+    setTimeout(() => setCopiedAddress(false), 2000);
   }
 
   return (
@@ -113,7 +121,18 @@ export function ProfileView({ user, session: _session, theme, onThemeToggle, onS
             )
           }
           {!walletAddress && balanceLoading && null}
-          {walletAddress && <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>Powered by Circle Wallets</p>}
+          {walletAddress && (
+            <div className="mt-2 flex items-center gap-1.5">
+              <p className="text-xs font-mono truncate flex-1" style={{ color: 'var(--muted)' }}>
+                {walletAddress}
+              </p>
+              <button onClick={copyAddress} className="flex-shrink-0 p-1 rounded-lg transition-all"
+                style={{ color: copiedAddress ? 'var(--success)' : 'var(--muted)', background: 'var(--surface-muted)' }}
+                title="Copy address">
+                {copiedAddress ? <Check size={12} /> : <Copy size={12} />}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Pro upgrade */}
