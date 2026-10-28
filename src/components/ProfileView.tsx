@@ -1,9 +1,9 @@
-import { Sun, Moon, LogOut, Copy, Shield, Bell, CreditCard, ChevronRight, Check, Loader2 } from 'lucide-react';
+import { Sun, Moon, LogOut, Copy, Shield, Bell, CreditCard, ChevronRight, Check, Loader2, RefreshCw, AlertTriangle } from 'lucide-react';
 import type { Session } from '@supabase/supabase-js';
 import type { User, Theme } from '../types';
 import { formatUSDC } from '../lib/utils';
 import { useState, useEffect } from 'react';
-import { getWalletBalance } from '../lib/api';
+import { getWalletBalance, provisionWallet } from '../lib/api';
 
 interface ProfileViewProps {
   user: User;
@@ -16,14 +16,32 @@ interface ProfileViewProps {
 export function ProfileView({ user, session: _session, theme, onThemeToggle, onSignOut }: ProfileViewProps) {
   const [copied, setCopied] = useState(false);
   const [balance, setBalance] = useState<string | null>(null);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(true);
+  const [walletProvisioning, setWalletProvisioning] = useState(false);
+  const [walletError, setWalletError] = useState<string | null>(null);
 
   useEffect(() => {
     getWalletBalance()
-      .then(({ balance: b }) => setBalance(b))
+      .then(({ balance: b, address }) => { setBalance(b); setWalletAddress(address); })
       .catch(() => setBalance(null))
       .finally(() => setBalanceLoading(false));
   }, []);
+
+  async function retryWallet() {
+    setWalletProvisioning(true);
+    setWalletError(null);
+    try {
+      await provisionWallet();
+      const { balance: b, address } = await getWalletBalance();
+      setBalance(b);
+      setWalletAddress(address);
+    } catch (err) {
+      setWalletError(err instanceof Error ? err.message : 'Wallet setup failed');
+    } finally {
+      setWalletProvisioning(false);
+    }
+  }
 
   function copyOneId() {
     navigator.clipboard.writeText(user.oneId).catch(() => {});
@@ -74,7 +92,27 @@ export function ProfileView({ user, session: _session, theme, onThemeToggle, onS
               : balance !== null ? `$${formatUSDC(parseFloat(balance))}` : '—'
             }
           </div>
-          <p className="text-xs" style={{ color: 'var(--muted)' }}>Powered by Circle Wallets</p>
+          {walletAddress
+            ? <p className="text-xs font-mono truncate" style={{ color: 'var(--muted)' }}>{walletAddress}</p>
+            : !balanceLoading && (
+              <div className="mt-2 space-y-2">
+                <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--warning, #b45309)' }}>
+                  <AlertTriangle size={12} /> Wallet not set up
+                </div>
+                {walletError && <p className="text-xs" style={{ color: 'var(--danger)' }}>{walletError}</p>}
+                <button onClick={() => { void retryWallet(); }}
+                  disabled={walletProvisioning}
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full transition-all"
+                  style={{ background: 'var(--ink)', color: 'var(--bg)' }}>
+                  {walletProvisioning
+                    ? <><Loader2 size={11} className="animate-spin" /> Setting up…</>
+                    : <><RefreshCw size={11} /> Set up wallet</>}
+                </button>
+              </div>
+            )
+          }
+          {!walletAddress && balanceLoading && null}
+          {walletAddress && <p className="text-xs mt-1" style={{ color: 'var(--muted)' }}>Powered by Circle Wallets</p>}
         </div>
 
         {/* Pro upgrade */}
