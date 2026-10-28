@@ -195,7 +195,7 @@ export function NewConversationModal({ session, initialQuery, onClose, onCreated
                 <div className="flex flex-wrap gap-2">
                   {selectedMembers.map((m) => (
                     <div key={m.userId} className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium"
-                      style={{ background: 'var(--ink)', color: 'white' }}>
+                      style={{ background: 'var(--ink)', color: 'var(--bg)' }}>
                       {m.displayName}
                       <button onClick={() => toggleMember(m)} className="ml-0.5 opacity-60 hover:opacity-100">
                         <X size={10} />
@@ -234,7 +234,7 @@ export function NewConversationModal({ session, initialQuery, onClose, onCreated
                     className="w-full flex items-center gap-3 px-3 py-3 rounded-2xl text-left transition-all disabled:opacity-60"
                     style={{ background: isSelected ? 'rgba(48,43,38,0.06)' : 'var(--surface-muted)', border: isSelected ? '1px solid var(--border-strong)' : '1px solid transparent' }}>
                     <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0"
-                      style={{ background: 'var(--ink)', color: 'white' }}>
+                      style={{ background: 'var(--ink)', color: 'var(--bg)' }}>
                       {r.initials}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -263,7 +263,7 @@ export function NewConversationModal({ session, initialQuery, onClose, onCreated
               onClick={() => { void createGroup(); }}
               disabled={!groupName.trim() || selectedMembers.length === 0 || creatingGroup}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-semibold transition-all disabled:opacity-40"
-              style={{ background: 'var(--ink)', color: 'white' }}>
+              style={{ background: 'var(--ink)', color: 'var(--bg)' }}>
               {creatingGroup
                 ? <><Loader2 size={14} className="animate-spin" /> Creating…</>
                 : <><Users size={14} /> Create group ({selectedMembers.length} member{selectedMembers.length !== 1 ? 's' : ''})</>}

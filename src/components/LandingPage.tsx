@@ -99,7 +99,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
                 </div>
               </div>
               <div className="flex justify-end">
-                <div className="px-4 py-2.5 rounded-2xl rounded-tr-sm text-sm max-w-xs" style={{ background: 'var(--ink)', color: 'white' }}>
+                <div className="px-4 py-2.5 rounded-2xl rounded-tr-sm text-sm max-w-xs" style={{ background: 'var(--ink)', color: 'var(--bg)' }}>
                   Sure! Sending now
                 </div>
               </div>

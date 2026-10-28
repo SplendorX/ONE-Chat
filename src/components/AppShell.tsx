@@ -209,7 +209,7 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
             <OneChatWordmark height={22} />
             <button
               className="w-8 h-8 rounded-full flex items-center justify-center"
-              style={{ background: 'var(--ink)', color: 'white' }}
+              style={{ background: 'var(--ink)', color: 'var(--bg)' }}
               title="New conversation">
               <span className="text-lg leading-none font-light">+</span>
             </button>
@@ -236,7 +236,7 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
           <div className="p-3 border-t" style={{ borderColor: 'var(--border)' }}>
             <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl" style={{ background: 'var(--surface-strong)' }}>
               <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                style={{ background: 'var(--ink)', color: 'white' }}>
+                style={{ background: 'var(--ink)', color: 'var(--bg)' }}>
                 {profile.initials}
               </div>
               <div className="min-w-0 flex-1">

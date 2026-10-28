@@ -39,7 +39,7 @@ export function InboxView({ conversations, activeConvId, session, onSelect, onCo
         <button
           onClick={() => setShowNew(true)}
           className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
-          style={{ background: 'var(--ink)', color: 'white' }}
+          style={{ background: 'var(--ink)', color: 'var(--bg)' }}
           title="New conversation">
           <Plus size={16} />
         </button>
@@ -71,8 +71,8 @@ export function InboxView({ conversations, activeConvId, session, onSelect, onCo
             {conversations.length === 0 && (
               <button
                 onClick={() => setShowNew(true)}
-                className="text-xs px-4 py-2 rounded-full transition-all"
-                style={{ background: 'var(--ink)', color: 'white' }}>
+                className="text-xs px-4 py-2 rounded-full transition-all font-medium"
+                style={{ background: '#C4A265', color: '#1a1714' }}>
                 Start your first conversation
               </button>
             )}

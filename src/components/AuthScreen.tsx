@@ -164,7 +164,7 @@ export function AuthScreen({ onAuthSuccess, onBack }: AuthScreenProps) {
                 type="submit"
                 disabled={loading || !email.trim()}
                 className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-semibold text-sm disabled:opacity-50"
-                style={{ background: 'var(--ink)', color: 'white' }}>
+                style={{ background: 'var(--ink)', color: 'var(--bg)' }}>
                 {loading
                   ? <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
                   : <>Send code <ArrowRight size={14} /></>}
@@ -198,7 +198,7 @@ export function AuthScreen({ onAuthSuccess, onBack }: AuthScreenProps) {
                 type="submit"
                 disabled={loading || otp.length < 6}
                 className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-semibold text-sm disabled:opacity-50"
-                style={{ background: 'var(--ink)', color: 'white' }}>
+                style={{ background: 'var(--ink)', color: 'var(--bg)' }}>
                 {loading
                   ? <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
                   : <>Verify and continue <ArrowRight size={14} /></>}

@@ -126,7 +126,7 @@ export function OnboardingFlow({ session, onComplete }: OnboardingFlowProps) {
               </div>
               <button onClick={() => { setStep('identity'); handleHandleChange(initialHandle); }}
                 className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-semibold text-sm"
-                style={{ background: 'var(--ink)', color: 'white' }}>
+                style={{ background: 'var(--ink)', color: 'var(--bg)' }}>
                 Get started <ArrowRight size={14} />
               </button>
             </div>
@@ -182,7 +182,7 @@ export function OnboardingFlow({ session, onComplete }: OnboardingFlowProps) {
                 onClick={() => { void handleClaimIdentity(); }}
                 disabled={checkState !== 'available' || saving}
                 className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-semibold text-sm disabled:opacity-40"
-                style={{ background: 'var(--ink)', color: 'white' }}>
+                style={{ background: 'var(--ink)', color: 'var(--bg)' }}>
                 {saving
                   ? <><Loader2 size={14} className="animate-spin" /> Claiming...</>
                   : <>Claim {checkState === 'available' ? `${oneHandle}.one` : 'your identity'} <ArrowRight size={14} /></>}
@@ -254,7 +254,7 @@ export function OnboardingFlow({ session, onComplete }: OnboardingFlowProps) {
               {walletState === 'idle' && (
                 <button onClick={() => { void handleProvisionWallet(); }}
                   className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-semibold text-sm"
-                  style={{ background: 'var(--ink)', color: 'white' }}>
+                  style={{ background: 'var(--ink)', color: 'var(--bg)' }}>
                   Create my wallet <ArrowRight size={14} />
                 </button>
               )}
@@ -262,7 +262,7 @@ export function OnboardingFlow({ session, onComplete }: OnboardingFlowProps) {
               {(walletState === 'done' || walletState === 'error') && (
                 <button onClick={() => setStep('allie')}
                   className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-semibold text-sm"
-                  style={{ background: 'var(--ink)', color: 'white' }}>
+                  style={{ background: 'var(--ink)', color: 'var(--bg)' }}>
                   Continue <ArrowRight size={14} />
                 </button>
               )}
@@ -314,7 +314,7 @@ export function OnboardingFlow({ session, onComplete }: OnboardingFlowProps) {
 
               <button onClick={() => setStep('done')}
                 className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-semibold text-sm"
-                style={{ background: 'var(--ink)', color: 'white' }}>
+                style={{ background: 'var(--ink)', color: 'var(--bg)' }}>
                 Enter One Chat <ArrowRight size={14} />
               </button>
             </div>
@@ -338,7 +338,7 @@ export function OnboardingFlow({ session, onComplete }: OnboardingFlowProps) {
               </div>
               <button onClick={onComplete}
                 className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-semibold text-sm"
-                style={{ background: 'var(--ink)', color: 'white' }}>
+                style={{ background: 'var(--ink)', color: 'var(--bg)' }}>
                 Open One Chat <ArrowRight size={14} />
               </button>
             </div>

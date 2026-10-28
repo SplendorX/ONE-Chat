@@ -361,7 +361,7 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
             onClick={() => void sendMessage()}
             disabled={!text.trim() || sending}
             className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-all disabled:opacity-40"
-            style={{ background: 'var(--ink)', color: 'white', border: 'none', cursor: text.trim() ? 'pointer' : 'default' }}>
+            style={{ background: 'var(--ink)', color: 'var(--bg)', border: 'none', cursor: text.trim() ? 'pointer' : 'default' }}>
             {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
           </button>
         </div>
@@ -420,7 +420,7 @@ function MessageBubble({ msg, isAllie }: { msg: Message; isAllie: boolean }) {
     <div className={`flex items-end gap-2 my-0.5 ${msg.isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
       {!msg.isOwn && !isAllie && (
         <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mb-1"
-          style={{ background: 'var(--ink)', color: 'white' }}>
+          style={{ background: 'var(--ink)', color: 'var(--bg)' }}>
           {(msg.senderName || '?').slice(0, 1)}
         </div>
       )}

@@ -163,7 +163,7 @@ export function PaymentSheet({ conversation, session, onClose, onPaymentSent }: 
             {/* Recipient */}
             <div className="rounded-2xl p-3 flex items-center gap-3" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border)' }}>
               <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                style={{ background: 'var(--ink)', color: 'white' }}>
+                style={{ background: 'var(--ink)', color: 'var(--bg)' }}>
                 {conversation.initials}
               </div>
               <div>
@@ -187,7 +187,7 @@ export function PaymentSheet({ conversation, session, onClose, onPaymentSent }: 
               onClick={() => setStep('review')}
               disabled={!isValidAmount}
               className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-semibold text-sm disabled:opacity-40"
-              style={{ background: 'var(--ink)', color: 'white' }}>
+              style={{ background: 'var(--ink)', color: 'var(--bg)' }}>
               Review payment <ArrowRight size={14} />
             </button>
           </div>
@@ -232,7 +232,7 @@ export function PaymentSheet({ conversation, session, onClose, onPaymentSent }: 
               </button>
               <button onClick={() => void handleSend()}
                 className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-semibold text-sm"
-                style={{ background: 'var(--ink)', color: 'white' }}>
+                style={{ background: 'var(--ink)', color: 'var(--bg)' }}>
                 Confirm & send <ArrowRight size={14} />
               </button>
             </div>
@@ -271,7 +271,7 @@ export function PaymentSheet({ conversation, session, onClose, onPaymentSent }: 
             </div>
             <button onClick={onClose}
               className="w-full py-3.5 rounded-2xl font-semibold text-sm"
-              style={{ background: 'var(--ink)', color: 'white' }}>
+              style={{ background: 'var(--ink)', color: 'var(--bg)' }}>
               Done
             </button>
           </div>
@@ -295,7 +295,7 @@ export function PaymentSheet({ conversation, session, onClose, onPaymentSent }: 
               </button>
               <button onClick={onClose}
                 className="flex-1 py-3 rounded-2xl text-sm font-semibold"
-                style={{ background: 'var(--ink)', color: 'white' }}>
+                style={{ background: 'var(--ink)', color: 'var(--bg)' }}>
                 Close
               </button>
             </div>

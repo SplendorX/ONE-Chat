@@ -44,7 +44,7 @@
   --bg: #141210;
   --bg-warm: #1a1815;
   --surface: rgba(30, 28, 25, 0.90);
-  --surface-strong: rgba(38, 35, 31, 0.98);
+  --surface-strong: #3a3530;   /* active nav item bg — visibly distinct from sidebar #242018 */
   --surface-muted: #242018;
   --surface-card: #1e1c19;                      /* solid dark card */
   --surface-overlay: #252219;                   /* modal / sheet in dark */
@@ -53,8 +53,8 @@
 
   --ink: #F0EBE3;
   --ink-2: #cdc8c0;
-  --muted: #a09890;   /* lighter than light-mode muted to be visible on dark bg */
-  --subtle: #706a62;
+  --muted: #b8b0a6;   /* WCAG AA on #242018 (dark surface-muted) — raised from a09890 */
+  --subtle: #8a837c;  /* secondary labels, timestamps */
 
   --border: rgba(255, 255, 255, 0.09);
   --border-strong: rgba(255, 255, 255, 0.20);

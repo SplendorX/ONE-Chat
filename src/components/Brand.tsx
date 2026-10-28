@@ -74,76 +74,45 @@ interface WordmarkProps {
 }
 
 /**
- * Full wordmark: speech-bubble "O" + "NE" in gold + "Chat" in cream.
- * The icon is sized to cap-height of the text so it sits on the baseline.
+ * Full wordmark: small speech-bubble icon + "ONE" in gold + "Chat" in --ink.
+ * DOM-based so CSS variables work for theme-adaptive colours.
  */
 export function OneChatWordmark({ height = 32, className }: WordmarkProps) {
-  // The viewBox is 520 wide × 100 tall; scale by height/100
-  const w = Math.round(height * 5.2);
+  const iconSize = Math.round(height * 0.85);
+  const fontSize = Math.round(height * 0.9);
   return (
-    <svg
-      width={w}
-      height={height}
-      viewBox="0 0 520 100"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
+    <span
       className={className}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: Math.round(height * 0.08),
+        lineHeight: 1,
+        userSelect: 'none',
+      }}
     >
-      <defs>
-        <mask id="wm-cut">
-          <rect width="100" height="100" fill="white" />
-          {/* Three dots inside the O bubble */}
-          <circle cx="38" cy="50" r="4.5" fill="black" />
-          <circle cx="50" cy="50" r="4.5" fill="black" />
-          <circle cx="62" cy="50" r="4.5" fill="black" />
-        </mask>
-      </defs>
-
-      {/* ---- The "O": speech bubble icon scaled to ~90px tall, sitting on baseline ---- */}
-      {/* Open ring arc for the O */}
-      <path
-        d="M 18 76 A 38 38 0 1 1 80 18"
-        stroke="#C4A265"
-        strokeWidth="9"
-        strokeLinecap="round"
-        fill="none"
-      />
-      {/* Bubble body with tail */}
-      <path
-        d="M 48 12
-           C 28 12, 12 28, 12 48
-           C 12 64, 22 77, 37 82
-           L 18 98
-           L 40 86
-           C 43 87, 45 87, 48 87
-           C 68 87, 84 71, 84 51
-           C 84 29, 68 12, 48 12 Z"
-        fill="#C4A265"
-        mask="url(#wm-cut)"
-      />
-
-      {/* ---- "NE" in gold, tight after the O ---- */}
-      <text
-        x="90"
-        y="82"
-        fontFamily="'Space Grotesk', 'Arial Black', sans-serif"
-        fontSize="80"
-        fontWeight="800"
-        fill="#C4A265"
-        letterSpacing="-2"
-      >NE</text>
-
-      {/* ---- "Chat" in cream, tight after NE ---- */}
-      {/* NE at 80px ≈ 2 chars × ~46px = ~92px wide; 90 + 92 = 182 */}
-      <text
-        x="182"
-        y="82"
-        fontFamily="'Space Grotesk', 'Arial Black', sans-serif"
-        fontSize="80"
-        fontWeight="800"
-        fill="#EDE5D8"
-        letterSpacing="-2"
-      >Chat</text>
-    </svg>
+      {/* Speech bubble icon — the "O" */}
+      <OneChatLogo size={iconSize} />
+      {/* "NE" in brand gold */}
+      <span style={{
+        fontFamily: "'Space Grotesk', 'Arial Black', sans-serif",
+        fontSize,
+        fontWeight: 800,
+        color: '#C4A265',
+        letterSpacing: '-0.04em',
+        lineHeight: 1,
+        marginLeft: -Math.round(height * 0.05),
+      }}>NE</span>
+      {/* "Chat" in --ink so it adapts to both themes */}
+      <span style={{
+        fontFamily: "'Space Grotesk', 'Arial Black', sans-serif",
+        fontSize,
+        fontWeight: 800,
+        color: 'var(--ink)',
+        letterSpacing: '-0.04em',
+        lineHeight: 1,
+        marginLeft: Math.round(height * 0.12),
+      }}>Chat</span>
+    </span>
   );
 }
