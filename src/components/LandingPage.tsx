@@ -1,4 +1,5 @@
 import { ArrowRight, MessageCircle, Send, Users, Sparkles, Shield, Zap, Gift } from 'lucide-react';
+import { OneChatWordmark, OneChatLogo } from './Brand';
 
 interface LandingPageProps {
   onGetStarted: () => void;
@@ -10,9 +11,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
       {/* Nav */}
       <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 md:px-12"
         style={{ background: 'rgba(255,255,255,0.88)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', borderBottom: '1px solid var(--border)' }}>
-        <span className="display text-xl font-700 tracking-tighter" style={{ color: 'var(--ink)', letterSpacing: '-0.03em' }}>
-          ONE<span style={{ color: 'var(--muted)' }}> CHAT</span>
-        </span>
+        <OneChatWordmark height={28} />
         <div className="flex items-center gap-3">
           <button
             onClick={onGetStarted}
@@ -40,6 +39,9 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
         </div>
 
         <div className="relative z-10 max-w-3xl mx-auto">
+          <div className="flex justify-center mb-8">
+            <OneChatLogo size={72} />
+          </div>
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-medium mb-8"
             style={{ background: 'var(--surface-muted)', color: 'var(--muted)', border: '1px solid var(--border)' }}>
             <Zap size={12} />
@@ -216,9 +218,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
       {/* Footer */}
       <footer className="py-10 px-6 md:px-12 border-t" style={{ borderColor: 'var(--border)' }}>
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <span className="display text-base font-700" style={{ color: 'var(--ink)', letterSpacing: '-0.02em' }}>
-            ONE CHAT
-          </span>
+          <OneChatWordmark height={24} />
           <div className="flex flex-wrap gap-5 text-xs justify-center" style={{ color: 'var(--muted)' }}>
             {['About', 'Security', 'Privacy', 'Terms', 'Help', 'Contact'].map((l) => (
               <a key={l} href="#" className="transition-colors hover:opacity-70">{l}</a>

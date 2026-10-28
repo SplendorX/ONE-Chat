@@ -6,6 +6,7 @@ import { LandingPage } from './components/LandingPage';
 import { AuthScreen } from './components/AuthScreen';
 import { OnboardingFlow } from './components/OnboardingFlow';
 import { AppShell } from './components/AppShell';
+import { OneChatLogo } from './components/Brand';
 
 export default function App() {
   const [view, setView] = useState<View>('landing');
@@ -75,9 +76,7 @@ export default function App() {
     return (
       <div className="min-h-dvh flex items-center justify-center" style={{ background: 'var(--bg)' }}>
         <div className="flex flex-col items-center gap-4">
-          <div className="display text-2xl font-bold" style={{ color: 'var(--ink)', letterSpacing: '-0.03em' }}>
-            ONE CHAT
-          </div>
+          <OneChatLogo size={64} />
           <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--ink)' }} />
         </div>
       </div>

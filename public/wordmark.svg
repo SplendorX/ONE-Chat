@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 120" fill="none">
+  <!-- The "O" is the speech-bubble icon -->
+  <!-- Circle ring for the O -->
+  <circle cx="58" cy="54" r="34" stroke="#C4A265" stroke-width="10" fill="none"/>
+  <!-- Speech bubble tail (bottom-left) -->
+  <path d="M24 74 L14 92 L36 82" fill="#C4A265"/>
+  <!-- Inner background of O to show dots -->
+  <circle cx="58" cy="54" r="24" fill="#F2EDE3"/>
+  <!-- Three dots inside the O -->
+  <circle cx="48" cy="54" r="4" fill="#C4A265"/>
+  <circle cx="58" cy="54" r="4" fill="#C4A265"/>
+  <circle cx="68" cy="54" r="4" fill="#C4A265"/>
+  <!-- NE text in bold gold -->
+  <text x="100" y="80" font-family="'Space Grotesk', 'Arial Black', sans-serif" font-size="72" font-weight="800" fill="#C4A265" letter-spacing="-2">NE</text>
+  <!-- Chat in cream/white -->
+  <text x="274" y="80" font-family="'Space Grotesk', 'Arial Black', sans-serif" font-size="72" font-weight="800" fill="#EDE5D8" letter-spacing="-2">Chat</text>
+</svg>

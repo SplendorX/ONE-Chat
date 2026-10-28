@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { MessageCircle, Users, Activity, Radio, UserCircle2, Sparkles } from 'lucide-react';
+import { OneChatWordmark, OneChatLogo } from './Brand';
 import type { AppTab, Theme, User } from '../types';
 import { supabase } from '../lib/supabase';
 import { InboxView } from './InboxView';
@@ -189,7 +190,10 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
   if (!profile) {
     return (
       <div className="min-h-dvh flex items-center justify-center" style={{ background: 'var(--bg)' }}>
-        <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--ink)' }} />
+        <div className="flex flex-col items-center gap-4">
+          <OneChatLogo size={56} />
+          <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'var(--ink)' }} />
+        </div>
       </div>
     );
   }
@@ -202,9 +206,7 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
         <div className="w-64 xl:w-72 flex flex-col border-r flex-shrink-0"
           style={{ borderColor: 'var(--border)', background: 'var(--surface-muted)' }}>
           <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: 'var(--border)' }}>
-            <span className="display text-lg font-bold" style={{ color: 'var(--ink)', letterSpacing: '-0.03em' }}>
-              ONE<span style={{ color: 'var(--muted)' }}> CHAT</span>
-            </span>
+            <OneChatWordmark height={22} />
             <button
               className="w-8 h-8 rounded-full flex items-center justify-center"
               style={{ background: 'var(--ink)', color: 'white' }}
