@@ -119,6 +119,16 @@ export function PaymentSheet({ conversation, session, onClose, onPaymentSent }: 
       setTxId(result.transactionId);
       setTxState(result.state);
 
+      // If server already confirmed it (polled Circle synchronously), resolve now
+      if (SUCCESS_STATES.includes(result.state)) {
+        setStep('success');
+      } else if (FAILED_STATES.includes(result.state)) {
+        setStep('failed');
+        setError('Payment was declined by the network');
+        return;
+      }
+      // Otherwise stay in 'pending' — the DB poll useEffect will resolve it
+
       const paymentMsg: Message = {
         id: result.transactionId,
         conversationId: conversation.id,

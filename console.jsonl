@@ -675,3 +675,6 @@
 {"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793305485726}
 {"level":"debug","message":"[vite] hot updated: /src/components/PaymentSheet.tsx","timestamp":1793305500171}
 {"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793305500171}
+{"level":"error","message":"[vite] failed to connect to websocket.\nyour current setup:\n  (browser) i1ov1mvb0a1brmw073wql.preview.studio.arc.io/ <--[HTTP]--> localhost:5173/ (server)\n  (browser) i1ov1mvb0a1brmw073wql.preview.studio.arc.io:/ <--[WebSocket (failing)]--> localhost:5173/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr .","timestamp":1793305867008}
+{"level":"debug","message":"[vite] hot updated: /src/components/PaymentSheet.tsx","timestamp":1793306328070}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793306328070}

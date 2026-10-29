@@ -42060,6 +42060,7 @@ function Jc(e) {
 import { randomUUID } from "crypto";
 var BLOCKCHAIN = "ARC-TESTNET";
 var RESERVED = ["admin", "allie", "onechat", "support", "help", "system", "root", "circle", "arc"];
+var TERMINAL_STATES = ["CONFIRMED", "COMPLETE", "SENT", "FAILED", "DENIED", "CANCELLED"];
 function checkEnv() {
   const missing = ["VITE_SUPABASE_URL", "SUPABASE_SERVICE_KEY", "CIRCLE_API_KEY", "CIRCLE_ENTITY_SECRET"].filter((k2) => !process.env[k2]);
   return missing.length ? `Server misconfigured \u2014 missing: ${missing.join(", ")}` : null;
@@ -42087,6 +42088,30 @@ async function getUser(req, res) {
     return null;
   }
   return { userId: data.user.id, userEmail: data.user.email };
+}
+async function pollCircleUntilTerminal(circleTxId, maxMs = 7e3) {
+  const deadline = Date.now() + maxMs;
+  let lastState = "INITIATED";
+  let lastHash = null;
+  while (Date.now() < deadline) {
+    try {
+      const r2 = await fetch(`https://api.circle.com/v1/w3s/transactions/${circleTxId}`, {
+        headers: { Authorization: `Bearer ${process.env.CIRCLE_API_KEY}` },
+        signal: AbortSignal.timeout(3e3)
+      });
+      if (r2.ok) {
+        const d = await r2.json();
+        const st2 = d.data?.transaction?.state ?? lastState;
+        const th = d.data?.transaction?.txHash ?? null;
+        lastState = st2;
+        lastHash = th;
+        if (TERMINAL_STATES.includes(st2)) return { state: st2, txHash: th };
+      }
+    } catch {
+    }
+    if (Date.now() < deadline - 1500) await new Promise((r2) => setTimeout(r2, 1500));
+  }
+  return { state: lastState, txHash: lastHash };
 }
 async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -42213,6 +42238,57 @@ async function handler(req, res) {
     }
     return;
   }
+  async function executePayment(params) {
+    const sdk = circle();
+    const balRes = await sdk.getWalletTokenBalance({ id: params.senderWalletId });
+    const usdcToken = (balRes.data?.tokenBalances ?? []).find((b) => b.token?.symbol === "USDC" || b.token?.name?.includes("USD Coin"));
+    if (!usdcToken?.token?.id) throw new Error("USDC not found in sender wallet");
+    const idempotencyKey = randomUUID();
+    const txRes = await sdk.createTransaction({
+      walletId: params.senderWalletId,
+      tokenId: usdcToken.token.id,
+      destinationAddress: params.destinationAddress,
+      amounts: [params.amount],
+      fee: { type: "level", config: { feeLevel: "MEDIUM" } },
+      idempotencyKey
+    });
+    const circleTxId = txRes.data?.id;
+    if (!circleTxId) throw new Error("No transaction ID from Circle");
+    const { data: tx, error: insertErr } = await params.supabase.from("transactions").insert({
+      circle_transaction_id: circleTxId,
+      sender_id: params.senderUserId,
+      recipient_id: params.recipientUserId,
+      amount: params.amountNum,
+      asset: "USDC",
+      blockchain: BLOCKCHAIN,
+      state: "INITIATED",
+      conversation_id: params.conversationId,
+      idempotency_key: idempotencyKey
+    }).select("id").single();
+    if (insertErr || !tx?.id) throw new Error(`DB insert failed: ${insertErr?.message ?? "no row returned"}`);
+    const txDbId = tx.id;
+    const { state: finalState, txHash } = await pollCircleUntilTerminal(circleTxId, 7e3);
+    await params.supabase.from("transactions").update({
+      state: finalState,
+      tx_hash: txHash,
+      updated_at: (/* @__PURE__ */ new Date()).toISOString()
+    }).eq("id", txDbId);
+    await params.supabase.from("messages").insert({
+      conversation_id: params.conversationId,
+      sender_id: params.senderUserId,
+      type: "payment",
+      content: params.note,
+      metadata: {
+        transactionId: txDbId,
+        circleTransactionId: circleTxId,
+        amount: params.amount,
+        asset: "USDC",
+        recipientHandle: params.recipientHandle,
+        state: finalState
+      }
+    });
+    return { transactionId: txDbId, circleTxId, state: finalState };
+  }
   if (path === "/payment/send" && req.method === "POST") {
     const user = await getUser(req, res);
     if (!user) return;
@@ -42248,39 +42324,19 @@ async function handler(req, res) {
         res.status(400).json({ error: "Recipient has no wallet" });
         return;
       }
-      const sdk = circle();
-      const balRes = await sdk.getWalletTokenBalance({ id: senderWallet.circle_wallet_id });
-      const usdcToken = (balRes.data?.tokenBalances ?? []).find((b) => b.token?.symbol === "USDC" || b.token?.name?.includes("USD Coin"));
-      if (!usdcToken?.token?.id) {
-        res.status(400).json({ error: "USDC not found in sender wallet" });
-        return;
-      }
-      const idempotencyKey = randomUUID();
-      const txRes = await sdk.createTransaction({ walletId: senderWallet.circle_wallet_id, tokenId: usdcToken.token.id, destinationAddress: recipientWallet.address, amounts: [amount], fee: { type: "level", config: { feeLevel: "MEDIUM" } }, idempotencyKey });
-      const circleTxId = txRes.data?.id;
-      if (!circleTxId) throw new Error("No transaction ID from Circle");
-      const { data: tx } = await supabase.from("transactions").insert({ circle_transaction_id: circleTxId, sender_id: user.userId, recipient_id: identity.user_id, amount: amountNum, asset: "USDC", blockchain: BLOCKCHAIN, state: "INITIATED", conversation_id: conversationId, idempotency_key: idempotencyKey }).select().single();
-      await supabase.from("messages").insert({ conversation_id: conversationId, sender_id: user.userId, type: "payment", content: note ?? null, metadata: { transactionId: tx?.id, circleTransactionId: circleTxId, amount, asset: "USDC", recipientHandle: `${identity.handle}.one`, state: "INITIATED" } });
-      res.json({ success: true, transactionId: tx?.id, circleTxId, state: "INITIATED" });
-      void (async () => {
-        const txDbId = tx?.id;
-        if (!txDbId) return;
-        for (let i = 0; i < 20; i++) {
-          await new Promise((r2) => setTimeout(r2, 3e3));
-          try {
-            const r2 = await fetch(`https://api.circle.com/v1/w3s/transactions/${circleTxId}`, { headers: { Authorization: `Bearer ${process.env.CIRCLE_API_KEY}` } });
-            if (!r2.ok) continue;
-            const d = await r2.json();
-            const st2 = d.data?.transaction?.state;
-            const th = d.data?.transaction?.txHash;
-            if (st2 && st2 !== "INITIATED") {
-              await supabase.from("transactions").update({ state: st2, tx_hash: th ?? null, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", txDbId);
-              if (["CONFIRMED", "COMPLETE", "SENT", "FAILED", "DENIED", "CANCELLED"].includes(st2)) break;
-            }
-          } catch {
-          }
-        }
-      })();
+      const result = await executePayment({
+        supabase,
+        senderWalletId: senderWallet.circle_wallet_id,
+        destinationAddress: recipientWallet.address,
+        amount,
+        amountNum,
+        recipientUserId: identity.user_id,
+        recipientHandle: `${identity.handle}.one`,
+        conversationId,
+        note: note ?? null,
+        senderUserId: user.userId
+      });
+      res.json({ success: true, ...result });
     } catch (err) {
       res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
     }
@@ -42310,39 +42366,19 @@ async function handler(req, res) {
         res.status(400).json({ error: "Sender wallet not provisioned" });
         return;
       }
-      const sdk = circle();
-      const balRes = await sdk.getWalletTokenBalance({ id: senderWallet.circle_wallet_id });
-      const usdcToken = (balRes.data?.tokenBalances ?? []).find((b) => b.token?.symbol === "USDC" || b.token?.name?.includes("USD Coin"));
-      if (!usdcToken?.token?.id) {
-        res.status(400).json({ error: "USDC not found in sender wallet" });
-        return;
-      }
-      const idempotencyKey = randomUUID();
-      const txRes = await sdk.createTransaction({ walletId: senderWallet.circle_wallet_id, tokenId: usdcToken.token.id, destinationAddress, amounts: [amount], fee: { type: "level", config: { feeLevel: "MEDIUM" } }, idempotencyKey });
-      const circleTxId = txRes.data?.id;
-      if (!circleTxId) throw new Error("No transaction ID from Circle");
-      const { data: tx } = await supabase.from("transactions").insert({ circle_transaction_id: circleTxId, sender_id: user.userId, recipient_id: null, amount: amountNum, asset: "USDC", blockchain: BLOCKCHAIN, state: "INITIATED", conversation_id: conversationId, idempotency_key: idempotencyKey }).select().single();
-      await supabase.from("messages").insert({ conversation_id: conversationId, sender_id: user.userId, type: "payment", content: note ?? null, metadata: { transactionId: tx?.id, circleTransactionId: circleTxId, amount, asset: "USDC", recipientHandle: destinationAddress, state: "INITIATED" } });
-      res.json({ success: true, transactionId: tx?.id, circleTxId, state: "INITIATED" });
-      void (async () => {
-        const txDbId = tx?.id;
-        if (!txDbId) return;
-        for (let i = 0; i < 20; i++) {
-          await new Promise((r2) => setTimeout(r2, 3e3));
-          try {
-            const r2 = await fetch(`https://api.circle.com/v1/w3s/transactions/${circleTxId}`, { headers: { Authorization: `Bearer ${process.env.CIRCLE_API_KEY}` } });
-            if (!r2.ok) continue;
-            const d = await r2.json();
-            const st2 = d.data?.transaction?.state;
-            const th = d.data?.transaction?.txHash;
-            if (st2 && st2 !== "INITIATED") {
-              await supabase.from("transactions").update({ state: st2, tx_hash: th ?? null, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", txDbId);
-              if (["CONFIRMED", "COMPLETE", "SENT", "FAILED", "DENIED", "CANCELLED"].includes(st2)) break;
-            }
-          } catch {
-          }
-        }
-      })();
+      const result = await executePayment({
+        supabase,
+        senderWalletId: senderWallet.circle_wallet_id,
+        destinationAddress,
+        amount,
+        amountNum,
+        recipientUserId: null,
+        recipientHandle: destinationAddress,
+        conversationId,
+        note: note ?? null,
+        senderUserId: user.userId
+      });
+      res.json({ success: true, ...result });
     } catch (err) {
       res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
     }
@@ -42353,36 +42389,12 @@ async function handler(req, res) {
     const user = await getUser(req, res);
     if (!user) return;
     const txId = decodeURIComponent(statusMatch[1]);
-    const supabase = db();
-    const { data: tx } = await supabase.from("transactions").select("*").eq("id", txId).or(`sender_id.eq.${user.userId},recipient_id.eq.${user.userId}`).maybeSingle();
+    const { data: tx } = await db().from("transactions").select("id, state, tx_hash, amount, circle_transaction_id").eq("id", txId).or(`sender_id.eq.${user.userId},recipient_id.eq.${user.userId}`).maybeSingle();
     if (!tx) {
       res.status(404).json({ error: "Transaction not found" });
       return;
     }
-    if (!tx.circle_transaction_id) {
-      res.json({ transaction: tx });
-      return;
-    }
-    try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 8e3);
-      const circleRes = await fetch(
-        `https://api.circle.com/v1/w3s/transactions/${tx.circle_transaction_id}`,
-        { headers: { Authorization: `Bearer ${process.env.CIRCLE_API_KEY}` }, signal: controller.signal }
-      );
-      clearTimeout(timer);
-      if (!circleRes.ok) throw new Error(`Circle API ${circleRes.status}`);
-      const circleData = await circleRes.json();
-      const rawState = circleData.data?.transaction?.state;
-      const txHash = circleData.data?.transaction?.txHash ?? tx.tx_hash;
-      const state = rawState ?? tx.state;
-      if (state !== tx.state) {
-        await supabase.from("transactions").update({ state, tx_hash: txHash ?? null, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", tx.id);
-      }
-      res.json({ transaction: { ...tx, state, tx_hash: txHash ?? null } });
-    } catch (err) {
-      res.json({ transaction: tx });
-    }
+    res.json({ transaction: tx });
     return;
   }
   if (path === "/chat/allie" && req.method === "POST") {
@@ -42420,25 +42432,16 @@ The user's current USDC balance is $${usdc.amount} on Arc Network.`;
 Your role: help users send USDC to contacts by .one handle, understand transaction history, check balances, split bills, and manage payments. Be concise, warm, and practical \u2014 this is a chat interface so keep replies short (2\u20134 sentences). When a user wants to send money, direct them to the $ button in any conversation. Never invent transaction details, amounts, or addresses. If asked something outside finance or ONE Chat, politely redirect.`;
       const response = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01"
-        },
+        headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
         body: JSON.stringify({
           model: "claude-3-5-haiku-20241022",
           max_tokens: 400,
           system: systemPrompt,
-          messages: [
-            ...(history ?? []).slice(-10),
-            { role: "user", content: message }
-          ]
-        })
+          messages: [...(history ?? []).slice(-10), { role: "user", content: message }]
+        }),
+        signal: AbortSignal.timeout(8e3)
       });
-      if (!response.ok) {
-        const errBody = await response.text();
-        throw new Error(`Anthropic error ${response.status}: ${errBody}`);
-      }
+      if (!response.ok) throw new Error(`Anthropic error ${response.status}: ${await response.text()}`);
       const data = await response.json();
       const reply = data.content.find((c) => c.type === "text")?.text ?? "Sorry, I could not process that.";
       res.json({ reply });
