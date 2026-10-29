@@ -74,8 +74,8 @@ export function PaymentSheet({ conversation, session, onClose, onPaymentSent }: 
       });
     }, 4000);
 
-    // Hard cap: 90s → assume success (Circle accepted the tx)
-    const cap = setTimeout(() => { if (!done) { done = true; setStep('success'); } }, 90_000);
+    // Hard cap: 30s → assume success (Circle accepted tx, Arc Testnet confirms in <5s normally)
+    const cap = setTimeout(() => { if (!done) { done = true; setStep('success'); } }, 30_000);
 
     return () => {
       done = true;

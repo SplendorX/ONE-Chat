@@ -106,100 +106,56 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
     void loadProfile();
   }, [session]);
 
-  // Load real conversations from Supabase
+  // Load real conversations from Supabase via RPC (bypasses RLS timing issues)
   useEffect(() => {
-    async function loadConversations() {
-      const userId = session.user.id;
-      // Ensure the session token is fresh before RLS-gated queries
-      await supabase.auth.getSession();
-      const { data: memberships } = await supabase
-        .from('conversation_members')
-        .select('conversation_id')
-        .eq('user_id', userId);
-      if (!memberships?.length) {
-        setConversations([]);
+    let cancelled = false;
+    async function loadConversations(attempt = 0) {
+      const { data, error } = await supabase.rpc('get_my_conversations');
+      if (cancelled) return;
+      if (error || !data) {
+        // Retry once after 1.5s in case the JWT wasn't attached yet
+        if (attempt === 0) {
+          setTimeout(() => { void loadConversations(1); }, 1500);
+        }
         return;
       }
-
-      const convIds = memberships.map((m) => m.conversation_id as string);
-      const { data: convs } = await supabase
-        .from('conversations')
-        .select('id, name, is_group, avatar_url, updated_at')
-        .in('id', convIds)
-        .order('updated_at', { ascending: false })
-        .limit(50);
-
-      if (!convs) return;
-
-      // For DM conversations, get the other participant's name + handle
-      const result: Conversation[] = [];
-      for (const c of convs) {
-        let name = c.name as string | null;
-        let initials = '??';
-        let oneId: string | undefined;
-        if (!c.is_group) {
-          const { data: others } = await supabase
-            .from('conversation_members')
-            .select('user_id')
-            .eq('conversation_id', c.id)
-            .neq('user_id', userId)
-            .limit(1);
-          const otherId = others?.[0]?.user_id as string | undefined;
-          if (otherId) {
-            const [otherProfile, otherIdentity] = await Promise.all([
-              supabase.from('profiles').select('display_name').eq('id', otherId).maybeSingle(),
-              supabase.from('one_identities').select('handle').eq('user_id', otherId).maybeSingle(),
-            ]);
-            name = otherProfile.data?.display_name as string | null ?? otherId;
-            initials = (name ?? '??').slice(0, 2).toUpperCase();
-            if (otherIdentity.data?.handle) {
-              oneId = `${otherIdentity.data.handle as string}.one`;
-            }
-          }
-        } else {
-          initials = (name ?? 'GR').slice(0, 2).toUpperCase();
-        }
-
-        // Get last message
-        const { data: lastMsg } = await supabase
-          .from('messages')
-          .select('content, type, created_at')
-          .eq('conversation_id', c.id)
-  
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        result.push({
-          id: c.id as string,
+      type Row = {
+        id: string; type: string; name: string | null; is_group: boolean;
+        avatar_url: string | null; updated_at: string;
+        other_name: string | null; other_handle: string | null;
+        last_content: string | null; last_type: string | null; last_at: string | null;
+      };
+      const result: Conversation[] = (data as Row[]).map((c) => {
+        const rawName = c.is_group ? c.name : c.other_name;
+        const name = rawName ?? 'Conversation';
+        const initials = name.slice(0, 2).toUpperCase();
+        const oneId = c.other_handle ? `${c.other_handle}.one` : undefined;
+        const lastMessage = c.last_type === 'payment' ? 'Sent USDC' : (c.last_content ?? '');
+        return {
+          id: c.id,
           type: c.is_group ? 'group' : 'direct',
-          name: name ?? 'Conversation',
+          name,
           oneId,
           initials,
-          lastMessage: lastMsg
-            ? (lastMsg.type === 'payment' ? 'Sent USDC' : lastMsg.content as string ?? '')
-            : '',
-          lastMessageTime: new Date(c.updated_at as string),
-        });
-      }
+          lastMessage,
+          lastMessageTime: new Date(c.last_at ?? c.updated_at),
+        };
+      });
+      if (cancelled) return;
       setConversations(result);
-
-      // Restore active conv — merge fresh data, or keep localStorage value if still valid
+      // Merge fresh data into active conv, but never clear it
       setActiveConvRaw((prev) => {
-        if (!prev) return null;
-        if (prev.id === 'allie') return prev;
+        if (!prev || prev.id === 'allie') return prev;
         const fresh = result.find((c) => c.id === prev.id);
-        if (fresh) {
-          const merged = { ...prev, ...fresh };
-          try { localStorage.setItem(CONV_KEY, JSON.stringify(merged)); } catch { /* ignore */ }
-          return merged;
-        }
-        // Not in list yet — keep the localStorage value; messages will still load from Supabase
-        return prev;
+        if (!fresh) return prev; // keep localStorage value — conv exists, just not in list yet
+        const merged = { ...prev, ...fresh };
+        try { localStorage.setItem(CONV_KEY, JSON.stringify(merged)); } catch { /* ignore */ }
+        return merged;
       });
     }
     void loadConversations();
-  }, [session]);
+    return () => { cancelled = true; };
+  }, [session, CONV_KEY]);
 
   // Subscribe to conversation list updates via Realtime
   useEffect(() => {
