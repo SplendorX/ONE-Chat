@@ -42445,8 +42445,9 @@ Your role: help users send USDC to contacts by .one handle, understand transacti
       const data = await response.json();
       const reply = data.content.find((c) => c.type === "text")?.text ?? "Sorry, I could not process that.";
       res.json({ reply });
-    } catch {
-      res.json({ reply: "I'm having a moment \u2014 please try again shortly." });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      res.json({ reply: `[debug] ${msg}` });
     }
     return;
   }
