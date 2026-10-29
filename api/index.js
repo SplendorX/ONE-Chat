@@ -42416,6 +42416,22 @@ async function handler(req, res) {
       return;
     }
     try {
+      const modelsRes = await fetch("https://api.anthropic.com/v1/models", {
+        headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01" }
+      });
+      const modelsData = await modelsRes.json();
+      const ids = (modelsData.data ?? []).map((m) => m.id).join(", ");
+      if (!modelsRes.ok || !ids) {
+        res.json({ reply: `[debug] models endpoint: ${modelsRes.status} \u2014 ${JSON.stringify(modelsData)}` });
+        return;
+      }
+      res.json({ reply: `[debug] available models: ${ids}` });
+      return;
+    } catch (e) {
+      res.json({ reply: `[debug] models fetch failed: ${String(e)}` });
+      return;
+    }
+    try {
       const { data: wallet } = await db().from("wallets").select("circle_wallet_id, address").eq("user_id", user.userId).maybeSingle();
       let balanceContext = "";
       if (wallet) {

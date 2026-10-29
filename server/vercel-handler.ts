@@ -316,6 +316,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.json({ reply }); return;
     }
 
+    // Debug: list available models
+    try {
+      const modelsRes = await fetch('https://api.anthropic.com/v1/models', {
+        headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      });
+      const modelsData = await modelsRes.json() as { data?: { id: string }[] };
+      const ids = (modelsData.data ?? []).map((m) => m.id).join(', ');
+      if (!modelsRes.ok || !ids) {
+        res.json({ reply: `[debug] models endpoint: ${modelsRes.status} — ${JSON.stringify(modelsData)}` }); return;
+      }
+      res.json({ reply: `[debug] available models: ${ids}` }); return;
+    } catch (e) { res.json({ reply: `[debug] models fetch failed: ${String(e)}` }); return; }
+
     try {
       const { data: wallet } = await db().from('wallets').select('circle_wallet_id, address').eq('user_id', user.userId).maybeSingle();
       let balanceContext = '';
