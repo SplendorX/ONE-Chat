@@ -40,10 +40,26 @@ const ALLIE_CONV: Conversation = {
 };
 
 export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellProps) {
-  const [tab, setTab] = useState<AppTab>('chats');
-  const [activeConv, setActiveConv] = useState<Conversation | null>(null);
+  // Restore tab + active conversation from sessionStorage so reloads don't reset state
+  const [tab, setTabRaw] = useState<AppTab>(() => {
+    try { return (sessionStorage.getItem('one-tab') as AppTab) ?? 'chats'; } catch { return 'chats'; }
+  });
+  const [activeConv, setActiveConvRaw] = useState<Conversation | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [profile, setProfile] = useState<User | null>(null);
+
+  function setTab(t: AppTab) {
+    setTabRaw(t);
+    try { sessionStorage.setItem('one-tab', t); } catch { /* ignore */ }
+  }
+
+  function setActiveConv(conv: Conversation | null) {
+    setActiveConvRaw(conv);
+    try {
+      if (conv) sessionStorage.setItem('one-active-conv', conv.id);
+      else sessionStorage.removeItem('one-active-conv');
+    } catch { /* ignore */ }
+  }
 
   // Load real profile + ONE identity from Supabase
   useEffect(() => {
@@ -147,6 +163,15 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
         });
       }
       setConversations(result);
+
+      // Restore active conversation after load
+      setActiveConvRaw((prev) => {
+        if (prev) return prev; // already set (e.g. user clicked something)
+        const savedId = (() => { try { return sessionStorage.getItem('one-active-conv'); } catch { return null; } })();
+        if (!savedId) return null;
+        if (savedId === 'allie') return ALLIE_CONV;
+        return result.find((c) => c.id === savedId) ?? null;
+      });
     }
     void loadConversations();
   }, [session]);
@@ -157,34 +182,25 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
     const channel = supabase
       .channel(`user-convs-${userId}`)
       .on('postgres_changes', {
-        event: '*',
+        event: 'INSERT',
         schema: 'public',
         table: 'messages',
-      }, () => {
-        // Re-fetch conversation list when a new message arrives
-        // (simplified: a production app would use a more targeted update)
-        void (async () => {
-          const { data: memberships } = await supabase
-            .from('conversation_members')
-            .select('conversation_id')
-            .eq('user_id', userId);
-          if (!memberships?.length) return;
-          const convIds = memberships.map((m) => m.conversation_id as string);
-          const { data: convs } = await supabase
-            .from('conversations')
-            .select('id, updated_at')
-            .in('id', convIds)
-            .order('updated_at', { ascending: false });
-          if (convs) {
-            setConversations((prev) =>
-              [...prev].sort((a, b) => {
-                const ai = convs.findIndex((c) => c.id === a.id);
-                const bi = convs.findIndex((c) => c.id === b.id);
-                return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
-              })
-            );
-          }
-        })();
+      }, (payload) => {
+        const m = payload.new as { conversation_id: string; content: string | null; type: string; created_at: string };
+        // Update the matching conversation's lastMessage + bubble it to top, no full reload
+        setConversations((prev) => {
+          const idx = prev.findIndex((c) => c.id === m.conversation_id);
+          if (idx === -1) return prev; // message for a conv not yet loaded — ignore
+          const updated = {
+            ...prev[idx],
+            lastMessage: m.type === 'payment' ? 'Sent USDC' : (m.content ?? ''),
+            lastMessageTime: new Date(m.created_at),
+          };
+          const next = [...prev];
+          next.splice(idx, 1);
+          next.unshift(updated);
+          return next;
+        });
       })
       .subscribe();
     return () => { void supabase.removeChannel(channel); };

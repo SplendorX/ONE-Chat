@@ -532,3 +532,24 @@
 {"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793281285119}
 {"level":"debug","message":"[vite] hot updated: /src/components/AppShell.tsx","timestamp":1793281285119}
 {"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793281285119}
+{"level":"debug","message":"[vite] connected.","timestamp":1793281562818}
+{"level":"error","message":"[vite] TypeError: Importing a module script failed.","timestamp":1793281574193}
+{"level":"error","message":"[vite] Failed to reload /src/components/AppShell.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above)","timestamp":1793281574193}
+{"level":"error","message":"[vite] TypeError: Importing a module script failed.","timestamp":1793281574193}
+{"level":"error","message":"[vite] Failed to reload /src/index.css. This could be due to syntax errors or importing non-existent modules. (see errors above)","timestamp":1793281574193}
+{"level":"debug","message":"[vite] hot updated: /src/components/AppShell.tsx","timestamp":1793281574194}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793281574194}
+{"level":"debug","message":"[vite] hot updated: /src/components/AppShell.tsx","timestamp":1793281579589}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793281579589}
+{"level":"debug","message":"[vite] hot updated: /src/components/AppShell.tsx","timestamp":1793281579590}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793281579590}
+{"level":"debug","message":"[vite] hot updated: /src/components/AppShell.tsx","timestamp":1793281586223}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793281586223}
+{"level":"debug","message":"[vite] hot updated: /src/components/AppShell.tsx","timestamp":1793281586223}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793281586223}
+{"level":"debug","message":"[vite] hot updated: /src/components/AppShell.tsx","timestamp":1793281589239}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793281589239}
+{"level":"debug","message":"[vite] hot updated: /src/components/AppShell.tsx","timestamp":1793281589240}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793281589240}
+{"level":"debug","message":"[vite] hot updated: /src/components/AppShell.tsx","timestamp":1793281589240}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793281589240}
