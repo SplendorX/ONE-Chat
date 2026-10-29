@@ -316,19 +316,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res.json({ reply }); return;
     }
 
-    // Debug: list available models
-    try {
-      const modelsRes = await fetch('https://api.anthropic.com/v1/models', {
-        headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-      });
-      const modelsData = await modelsRes.json() as { data?: { id: string }[] };
-      const ids = (modelsData.data ?? []).map((m) => m.id).join(', ');
-      if (!modelsRes.ok || !ids) {
-        res.json({ reply: `[debug] models endpoint: ${modelsRes.status} — ${JSON.stringify(modelsData)}` }); return;
-      }
-      res.json({ reply: `[debug] available models: ${ids}` }); return;
-    } catch (e) { res.json({ reply: `[debug] models fetch failed: ${String(e)}` }); return; }
-
     try {
       const { data: wallet } = await db().from('wallets').select('circle_wallet_id, address').eq('user_id', user.userId).maybeSingle();
       let balanceContext = '';
@@ -348,7 +335,7 @@ Your role: help users send USDC to contacts by .one handle, understand transacti
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
         body: JSON.stringify({
-          model: 'claude-3-haiku-20240307',
+          model: 'claude-haiku-4-5-20251001',
           max_tokens: 400,
           system: systemPrompt,
           messages: [...(history ?? []).slice(-10), { role: 'user', content: message }],
@@ -359,9 +346,8 @@ Your role: help users send USDC to contacts by .one handle, understand transacti
       const data = await response.json() as { content: { type: string; text: string }[] };
       const reply = data.content.find((c) => c.type === 'text')?.text ?? 'Sorry, I could not process that.';
       res.json({ reply });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      res.json({ reply: `[debug] ${msg}` });
+    } catch {
+      res.json({ reply: "I'm having a moment — please try again shortly." });
     }
     return;
   }
