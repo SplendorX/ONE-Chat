@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { X, ArrowRight, Check, Loader2, AlertCircle } from 'lucide-react';
 import type { Conversation, Message } from '../types';
-import { sendUsdc, getPaymentStatus, resolveIdentity } from '../lib/api';
+import { sendUsdc, getPaymentStatus } from '../lib/api';
 import { formatUSDC } from '../lib/utils';
 
 interface PaymentSheetProps {
@@ -21,8 +21,10 @@ export function PaymentSheet({ conversation, session, onClose, onPaymentSent }: 
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
-  // The server resolves ONE identity → wallet; we pass the conversation name as a lookup hint
-  const [resolvedHandle] = useState(conversation.name);
+  // Prefer the stored .one handle; fall back to the display name (server will reject if it doesn't match)
+  const [resolvedHandle] = useState(
+    conversation.oneId ? conversation.oneId.replace(/\.one$/, '') : conversation.name
+  );
   const [txId, setTxId] = useState('');
   const [txState, setTxState] = useState('');
   const [pollCount, setPollCount] = useState(0);
@@ -59,15 +61,7 @@ export function PaymentSheet({ conversation, session, onClose, onPaymentSent }: 
     setError('');
     setStep('pending');
     try {
-      // Resolve the ONE identity to get the handle
-      // For now, derive handle from conversation name (real app would store this)
-      let handle = resolvedHandle;
-      try {
-        const resolved = await resolveIdentity(handle);
-        handle = resolved.handle;
-      } catch {
-        // If resolve fails, try the name as-is (will fail on server if not found)
-      }
+      const handle = resolvedHandle.toLowerCase().replace(/\.one$/, '').replace(/\s+/g, '');
 
       const result = await sendUsdc({
         recipientHandle: handle,

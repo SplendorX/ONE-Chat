@@ -44,7 +44,18 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
   const [tab, setTabRaw] = useState<AppTab>(() => {
     try { return (sessionStorage.getItem('one-tab') as AppTab) ?? 'chats'; } catch { return 'chats'; }
   });
-  const [activeConv, setActiveConvRaw] = useState<Conversation | null>(null);
+  const [activeConv, setActiveConvRaw] = useState<Conversation | null>(() => {
+    try {
+      const saved = sessionStorage.getItem('one-active-conv-obj');
+      if (!saved) return null;
+      const parsed = JSON.parse(saved) as Conversation & { lastMessageTime?: string | Date };
+      // Rehydrate Date fields
+      if (parsed.lastMessageTime && typeof parsed.lastMessageTime === 'string') {
+        parsed.lastMessageTime = new Date(parsed.lastMessageTime);
+      }
+      return parsed;
+    } catch { return null; }
+  });
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [profile, setProfile] = useState<User | null>(null);
 
@@ -56,8 +67,8 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
   function setActiveConv(conv: Conversation | null) {
     setActiveConvRaw(conv);
     try {
-      if (conv) sessionStorage.setItem('one-active-conv', conv.id);
-      else sessionStorage.removeItem('one-active-conv');
+      if (conv) sessionStorage.setItem('one-active-conv-obj', JSON.stringify(conv));
+      else sessionStorage.removeItem('one-active-conv-obj');
     } catch { /* ignore */ }
   }
 
@@ -112,13 +123,13 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
 
       if (!convs) return;
 
-      // For DM conversations, get the other participant's name
+      // For DM conversations, get the other participant's name + handle
       const result: Conversation[] = [];
       for (const c of convs) {
         let name = c.name as string | null;
         let initials = '??';
+        let oneId: string | undefined;
         if (!c.is_group) {
-          // Get the other member
           const { data: others } = await supabase
             .from('conversation_members')
             .select('user_id')
@@ -134,7 +145,7 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
             name = otherProfile.data?.display_name as string | null ?? otherId;
             initials = (name ?? '??').slice(0, 2).toUpperCase();
             if (otherIdentity.data?.handle) {
-              initials = (name ?? '??').slice(0, 2).toUpperCase();
+              oneId = `${otherIdentity.data.handle as string}.one`;
             }
           }
         } else {
@@ -155,6 +166,7 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
           id: c.id as string,
           type: c.is_group ? 'group' : 'direct',
           name: name ?? 'Conversation',
+          oneId,
           initials,
           lastMessage: lastMsg
             ? (lastMsg.type === 'payment' ? 'Sent USDC' : lastMsg.content as string ?? '')
@@ -164,13 +176,18 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
       }
       setConversations(result);
 
-      // Restore active conversation after load
+      // After loading, update the active conversation with fresh data (e.g. new oneId)
       setActiveConvRaw((prev) => {
-        if (prev) return prev; // already set (e.g. user clicked something)
-        const savedId = (() => { try { return sessionStorage.getItem('one-active-conv'); } catch { return null; } })();
-        if (!savedId) return null;
-        if (savedId === 'allie') return ALLIE_CONV;
-        return result.find((c) => c.id === savedId) ?? null;
+        if (!prev) return null;
+        if (prev.id === 'allie') return prev;
+        // Merge fresh data (especially oneId) into the persisted conv object
+        const fresh = result.find((c) => c.id === prev.id);
+        if (fresh) {
+          const merged = { ...prev, ...fresh };
+          try { sessionStorage.setItem('one-active-conv-obj', JSON.stringify(merged)); } catch { /* ignore */ }
+          return merged;
+        }
+        return prev;
       });
     }
     void loadConversations();

@@ -553,3 +553,52 @@
 {"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793281589240}
 {"level":"debug","message":"[vite] hot updated: /src/components/AppShell.tsx","timestamp":1793281589240}
 {"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793281589240}
+{"level":"debug","message":"[vite] connected.","timestamp":1793281616892}
+{"level":"debug","message":"[vite] connected.","timestamp":1793281618003}
+{"level":"debug","message":"[vite] connected.","timestamp":1793281904190}
+{"level":"error","message":"[vite] TypeError: Importing a module script failed.","timestamp":1793281917191}
+{"level":"error","message":"[vite] Failed to reload /src/components/PaymentSheet.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above)","timestamp":1793281917191}
+{"level":"error","message":"[vite] TypeError: Importing a module script failed.","timestamp":1793281917191}
+{"level":"error","message":"[vite] Failed to reload /src/index.css. This could be due to syntax errors or importing non-existent modules. (see errors above)","timestamp":1793281917191}
+{"level":"debug","message":"[vite] hot updated: /src/components/PaymentSheet.tsx","timestamp":1793281917191}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793281917191}
+{"level":"debug","message":"[vite] hot updated: /src/components/PaymentSheet.tsx","timestamp":1793281922752}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793281922752}
+{"level":"debug","message":"[vite] hot updated: /src/components/PaymentSheet.tsx","timestamp":1793281922754}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793281922754}
+{"level":"debug","message":"[vite] hot updated: /src/components/PaymentSheet.tsx","timestamp":1793281925503}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793281925503}
+{"level":"debug","message":"[vite] hot updated: /src/components/PaymentSheet.tsx","timestamp":1793281925503}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793281925503}
+{"level":"debug","message":"[vite] hot updated: /src/components/AppShell.tsx","timestamp":1793281939594}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793281939594}
+{"level":"debug","message":"[vite] hot updated: /src/components/AppShell.tsx","timestamp":1793281939594}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793281939594}
+{"level":"debug","message":"[vite] hot updated: /src/components/AppShell.tsx","timestamp":1793281945701}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793281945701}
+{"level":"debug","message":"[vite] hot updated: /src/components/AppShell.tsx","timestamp":1793281945702}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793281945702}
+{"level":"debug","message":"[vite] hot updated: /src/components/AppShell.tsx","timestamp":1793281950432}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793281950432}
+{"level":"debug","message":"[vite] hot updated: /src/components/AppShell.tsx","timestamp":1793281950433}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793281950433}
+{"level":"debug","message":"[vite] hot updated: /src/components/AppShell.tsx","timestamp":1793281954668}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793281954668}
+{"level":"debug","message":"[vite] hot updated: /src/components/AppShell.tsx","timestamp":1793281954668}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793281954668}
+{"level":"debug","message":"[vite] hot updated: /src/components/AppShell.tsx","timestamp":1793281957652}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793281957652}
+{"level":"debug","message":"[vite] hot updated: /src/components/AppShell.tsx","timestamp":1793281957653}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793281957653}
+{"level":"debug","message":"[vite] hot updated: /src/components/AppShell.tsx","timestamp":1793281962509}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793281962509}
+{"level":"debug","message":"[vite] hot updated: /src/components/AppShell.tsx","timestamp":1793281962509}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793281962509}
+{"level":"debug","message":"[vite] hot updated: /src/components/AppShell.tsx","timestamp":1793281970877}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793281970877}
+{"level":"debug","message":"[vite] hot updated: /src/components/AppShell.tsx","timestamp":1793281970877}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793281970877}
+{"level":"debug","message":"[vite] hot updated: /src/components/AppShell.tsx","timestamp":1793281974594}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793281974594}
+{"level":"debug","message":"[vite] hot updated: /src/components/AppShell.tsx","timestamp":1793281974594}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793281974594}
