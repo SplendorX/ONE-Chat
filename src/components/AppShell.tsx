@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ErrorBoundary } from './ErrorBoundary';
 import type { Session } from '@supabase/supabase-js';
 import { MessageCircle, Users, Activity, Radio, UserCircle2 } from 'lucide-react';
 import { AllieIcon } from './AllieIcon';
@@ -271,7 +272,9 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
               <motion.div key={activeConv.id} className="h-full"
                 initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
                 transition={{ duration: 0.18, ease: 'easeOut' }}>
-                <ConversationView conversation={activeConv} user={profile} session={session} onBack={() => setActiveConv(null)} />
+                <ErrorBoundary key={activeConv.id}>
+                  <ConversationView conversation={activeConv} user={profile} session={session} onBack={() => setActiveConv(null)} />
+                </ErrorBoundary>
               </motion.div>
             ) : (
               <motion.div key="empty" className="h-full flex flex-col items-center justify-center gap-3"
@@ -291,7 +294,9 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
       <div className="lg:hidden flex flex-col h-dvh">
         <div className="flex-1 overflow-hidden">
           {activeConv ? (
-            <ConversationView conversation={activeConv} user={profile} session={session} onBack={() => setActiveConv(null)} />
+            <ErrorBoundary key={activeConv.id}>
+              <ConversationView conversation={activeConv} user={profile} session={session} onBack={() => setActiveConv(null)} />
+            </ErrorBoundary>
           ) : (
             <>
               {tab === 'chats' && <InboxView conversations={conversations} activeConvId={undefined} session={session} onSelect={setActiveConv} onConversationCreated={(conv) => { if (!conversations.find((c) => c.id === conv.id)) setConversations((p) => [conv, ...p]); setActiveConv(conv); }} />}

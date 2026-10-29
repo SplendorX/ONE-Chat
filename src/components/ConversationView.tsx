@@ -65,15 +65,18 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
 
     async function loadMessages() {
       setLoading(true);
-      const { data } = await supabase
+      const { data, error: fetchErr } = await supabase
         .from('messages')
         .select('id, sender_id, type, content, metadata, created_at, edited_at')
         .eq('conversation_id', conversation.id)
         .is('deleted_at', null)
         .order('created_at', { ascending: true })
         .limit(100);
+      if (fetchErr) console.error('[ConversationView] load error', fetchErr);
 
       if (data) {
+        // eslint-disable-next-line no-console
+        console.log('[ConversationView] loaded', data.length, 'messages for', conversation.id);
         setMessages(data.map((m) => ({
           id: m.id as string,
           conversationId: conversation.id,
