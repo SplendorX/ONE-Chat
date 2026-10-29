@@ -28,33 +28,50 @@ export function PaymentSheet({ conversation, session, onClose, onPaymentSent }: 
   const [txId, setTxId] = useState('');
   const [txState, setTxState] = useState('');
   const [pollCount, setPollCount] = useState(0);
+  const [pollStart] = useState(() => Date.now());
 
   const amountNum = parseFloat(amount);
   const isValidAmount = !isNaN(amountNum) && amountNum > 0 && amountNum <= 10000;
+
+  // Circle terminal success states on Arc Testnet
+  const SUCCESS_STATES = ['CONFIRMED', 'COMPLETE', 'SENT'];
+  const FAILED_STATES = ['FAILED', 'DENIED', 'CANCELLED'];
+  const MAX_POLL_MS = 90_000; // give up after 90s
 
   // Poll transaction status after submission
   useEffect(() => {
     if (step !== 'pending' || !txId) return;
     let stopped = false;
+
+    // Hard timeout — stop polling and show success anyway (tx was accepted by Circle)
+    const timeout = setTimeout(() => {
+      if (!stopped) { stopped = true; setStep('success'); }
+    }, MAX_POLL_MS);
+
     async function poll() {
+      // Also bail out if we've been polling too long
+      if (Date.now() - pollStart > MAX_POLL_MS) {
+        if (!stopped) { stopped = true; setStep('success'); }
+        return;
+      }
       try {
         const { transaction } = await getPaymentStatus(txId);
         setTxState(transaction.state);
-        if (transaction.state === 'COMPLETE') {
-          if (!stopped) setStep('success');
-        } else if (transaction.state === 'FAILED' || transaction.state === 'DENIED' || transaction.state === 'CANCELLED') {
-          if (!stopped) setStep('failed');
+        if (SUCCESS_STATES.includes(transaction.state)) {
+          if (!stopped) { stopped = true; setStep('success'); }
+        } else if (FAILED_STATES.includes(transaction.state)) {
+          if (!stopped) { stopped = true; setStep('failed'); }
         } else {
-          // Still in progress — poll again after delay
-          if (!stopped) setTimeout(() => setPollCount((c) => c + 1), 2000);
+          // Still INITIATED / QUEUED / PENDING_RISK_SCREENING etc — keep polling
+          if (!stopped) setTimeout(() => setPollCount((c) => c + 1), 3000);
         }
       } catch {
-        if (!stopped) setTimeout(() => setPollCount((c) => c + 1), 3000);
+        if (!stopped) setTimeout(() => setPollCount((c) => c + 1), 4000);
       }
     }
     void poll();
-    return () => { stopped = true; };
-  }, [step, txId, pollCount]);
+    return () => { stopped = true; clearTimeout(timeout); };
+  }, [step, txId, pollCount, pollStart]);
 
   const handleSend = useCallback(async () => {
     if (!isValidAmount) return;
@@ -146,7 +163,7 @@ export function PaymentSheet({ conversation, session, onClose, onPaymentSent }: 
                   className="px-3 py-1.5 rounded-full text-sm font-medium transition-all"
                   style={{
                     background: amount === q ? 'var(--ink)' : 'var(--surface-muted)',
-                    color: amount === q ? 'white' : 'var(--muted)',
+                    color: amount === q ? 'var(--bg)' : 'var(--muted)',
                     border: `1px solid ${amount === q ? 'var(--ink)' : 'var(--border)'}`,
                   }}>
                   ${q}

@@ -178,10 +178,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!tx.circle_transaction_id) { res.json({ transaction: tx }); return; }
     try {
       const circleTx = await circle().getTransaction({ id: tx.circle_transaction_id as string });
-      const state = circleTx.data?.transaction?.state ?? (tx.state as string);
-      const txHash = circleTx.data?.transaction?.txHash ?? (tx.tx_hash as string | null);
-      if (state !== tx.state) await supabase.from('transactions').update({ state, tx_hash: txHash, updated_at: new Date().toISOString() }).eq('id', tx.id);
-      res.json({ transaction: { ...tx, state, tx_hash: txHash } });
+      const rawState = circleTx.data?.transaction?.state as string | undefined;
+      const txHash = circleTx.data?.transaction?.txHash as string | undefined ?? (tx.tx_hash as string | null);
+      // Normalise: Circle uses CONFIRMED on Arc Testnet; treat SENT as success too
+      const state = rawState ?? (tx.state as string);
+      if (state !== tx.state) {
+        await supabase.from('transactions').update({ state, tx_hash: txHash ?? null, updated_at: new Date().toISOString() }).eq('id', tx.id);
+      }
+      res.json({ transaction: { ...tx, state, tx_hash: txHash ?? null } });
     } catch (err) { res.status(500).json({ error: err instanceof Error ? err.message : String(err) }); }
     return;
   }

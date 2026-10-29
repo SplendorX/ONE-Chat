@@ -42284,10 +42284,13 @@ async function handler(req, res) {
     }
     try {
       const circleTx = await circle().getTransaction({ id: tx.circle_transaction_id });
-      const state = circleTx.data?.transaction?.state ?? tx.state;
+      const rawState = circleTx.data?.transaction?.state;
       const txHash = circleTx.data?.transaction?.txHash ?? tx.tx_hash;
-      if (state !== tx.state) await supabase.from("transactions").update({ state, tx_hash: txHash, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", tx.id);
-      res.json({ transaction: { ...tx, state, tx_hash: txHash } });
+      const state = rawState ?? tx.state;
+      if (state !== tx.state) {
+        await supabase.from("transactions").update({ state, tx_hash: txHash ?? null, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", tx.id);
+      }
+      res.json({ transaction: { ...tx, state, tx_hash: txHash ?? null } });
     } catch (err) {
       res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
     }
