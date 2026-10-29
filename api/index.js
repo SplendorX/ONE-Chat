@@ -42283,16 +42283,24 @@ async function handler(req, res) {
       return;
     }
     try {
-      const circleTx = await circle().getTransaction({ id: tx.circle_transaction_id });
-      const rawState = circleTx.data?.transaction?.state;
-      const txHash = circleTx.data?.transaction?.txHash ?? tx.tx_hash;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 8e3);
+      const circleRes = await fetch(
+        `https://api.circle.com/v1/w3s/transactions/${tx.circle_transaction_id}`,
+        { headers: { Authorization: `Bearer ${process.env.CIRCLE_API_KEY}` }, signal: controller.signal }
+      );
+      clearTimeout(timer);
+      if (!circleRes.ok) throw new Error(`Circle API ${circleRes.status}`);
+      const circleData = await circleRes.json();
+      const rawState = circleData.data?.transaction?.state;
+      const txHash = circleData.data?.transaction?.txHash ?? tx.tx_hash;
       const state = rawState ?? tx.state;
       if (state !== tx.state) {
         await supabase.from("transactions").update({ state, tx_hash: txHash ?? null, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", tx.id);
       }
       res.json({ transaction: { ...tx, state, tx_hash: txHash ?? null } });
     } catch (err) {
-      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+      res.json({ transaction: tx });
     }
     return;
   }

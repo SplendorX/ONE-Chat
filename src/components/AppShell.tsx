@@ -111,7 +111,10 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
         .from('conversation_members')
         .select('conversation_id')
         .eq('user_id', userId);
-      if (!memberships?.length) return;
+      if (!memberships?.length) {
+        setConversations([]);
+        return;
+      }
 
       const convIds = memberships.map((m) => m.conversation_id as string);
       const { data: convs } = await supabase
@@ -177,16 +180,18 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
       setConversations(result);
 
       // After loading, update the active conversation with fresh data (e.g. new oneId)
+      // If not found in list, keep existing sessionStorage value — don't clear it
       setActiveConvRaw((prev) => {
         if (!prev) return null;
         if (prev.id === 'allie') return prev;
-        // Merge fresh data (especially oneId) into the persisted conv object
         const fresh = result.find((c) => c.id === prev.id);
         if (fresh) {
           const merged = { ...prev, ...fresh };
           try { sessionStorage.setItem('one-active-conv-obj', JSON.stringify(merged)); } catch { /* ignore */ }
           return merged;
         }
+        // Conv not in list yet (timing) — keep existing state, trigger a retry
+        void loadConversations();
         return prev;
       });
     }
@@ -274,10 +279,11 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
 
           <div className="p-3 border-t" style={{ borderColor: 'var(--border)' }}>
             <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl" style={{ background: 'var(--surface-strong)' }}>
-              <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                style={{ background: 'var(--ink)', color: 'var(--bg)' }}>
-                {profile.initials}
-              </div>
+              {profile.avatarUrl
+                ? <img src={profile.avatarUrl} alt={profile.displayName} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                : <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                    style={{ background: 'var(--ink)', color: 'var(--bg)' }}>{profile.initials}</div>
+              }
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-semibold truncate" style={{ color: 'var(--ink)' }}>{profile.displayName}</div>
                 <div className="text-xs truncate" style={{ color: 'var(--muted)' }}>{profile.oneId}</div>
@@ -296,7 +302,7 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
               {tab === 'contacts' && <ContactsView session={session} onStartChat={(conv) => { setTab('chats'); setActiveConv(conv); }} />}
               {tab === 'activity' && <ActivityView user={profile} session={session} />}
               {tab === 'channels' && <ChannelsView user={profile} session={session} />}
-              {tab === 'you' && <ProfileView user={profile} session={session} theme={theme} onThemeToggle={onThemeToggle} onSignOut={onSignOut} />}
+              {tab === 'you' && <ProfileView user={profile} session={session} theme={theme} onThemeToggle={onThemeToggle} onSignOut={onSignOut} onAvatarUpdate={(url) => setProfile((p) => p ? { ...p, avatarUrl: url } : p)} />}
             </motion.div>
           </AnimatePresence>
         </div>
@@ -339,7 +345,7 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
               {tab === 'contacts' && <ContactsView session={session} onStartChat={(conv) => { setTab('chats'); setActiveConv(conv); }} />}
               {tab === 'activity' && <ActivityView user={profile} session={session} />}
               {tab === 'channels' && <ChannelsView user={profile} session={session} />}
-              {tab === 'you' && <ProfileView user={profile} session={session} theme={theme} onThemeToggle={onThemeToggle} onSignOut={onSignOut} />}
+              {tab === 'you' && <ProfileView user={profile} session={session} theme={theme} onThemeToggle={onThemeToggle} onSignOut={onSignOut} onAvatarUpdate={(url) => setProfile((p) => p ? { ...p, avatarUrl: url } : p)} />}
             </>
           )}
         </div>

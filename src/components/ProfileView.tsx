@@ -1,9 +1,10 @@
-import { Sun, Moon, LogOut, Copy, Shield, Bell, CreditCard, ChevronRight, Check, Loader2, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Sun, Moon, LogOut, Copy, Shield, Bell, CreditCard, ChevronRight, Check, Loader2, RefreshCw, AlertTriangle, Camera } from 'lucide-react';
 import type { Session } from '@supabase/supabase-js';
 import type { User, Theme } from '../types';
 import { formatUSDC } from '../lib/utils';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getWalletBalance, provisionWallet } from '../lib/api';
+import { supabase } from '../lib/supabase';
 
 interface ProfileViewProps {
   user: User;
@@ -11,9 +12,10 @@ interface ProfileViewProps {
   theme: Theme;
   onThemeToggle: () => void;
   onSignOut: () => void;
+  onAvatarUpdate?: (url: string) => void;
 }
 
-export function ProfileView({ user, session: _session, theme, onThemeToggle, onSignOut }: ProfileViewProps) {
+export function ProfileView({ user, session, theme, onThemeToggle, onSignOut, onAvatarUpdate }: ProfileViewProps) {
   const [copied, setCopied] = useState(false);
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [balance, setBalance] = useState<string | null>(null);
@@ -21,6 +23,10 @@ export function ProfileView({ user, session: _session, theme, onThemeToggle, onS
   const [balanceLoading, setBalanceLoading] = useState(true);
   const [walletProvisioning, setWalletProvisioning] = useState(false);
   const [walletError, setWalletError] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | undefined>(user.avatarUrl);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     getWalletBalance()
@@ -58,6 +64,32 @@ export function ProfileView({ user, session: _session, theme, onThemeToggle, onS
     setTimeout(() => setCopiedAddress(false), 2000);
   }
 
+  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { setAvatarError('Image must be under 5 MB'); return; }
+    setAvatarUploading(true);
+    setAvatarError('');
+    try {
+      const ext = file.name.split('.').pop() ?? 'jpg';
+      const path = `${session.user.id}/avatar.${ext}`;
+      const { error: uploadErr } = await supabase.storage
+        .from('avatars')
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (uploadErr) throw uploadErr;
+      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
+      const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+      await supabase.from('profiles').upsert({ id: session.user.id, avatar_url: publicUrl, updated_at: new Date().toISOString() }, { onConflict: 'id' });
+      setAvatarUrl(publicUrl);
+      onAvatarUpdate?.(publicUrl);
+    } catch (err) {
+      setAvatarError(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setAvatarUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  }
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="px-5 py-4 border-b flex-shrink-0" style={{ borderColor: 'var(--border)' }}>
@@ -68,10 +100,27 @@ export function ProfileView({ user, session: _session, theme, onThemeToggle, onS
         {/* Profile card */}
         <div className="rounded-3xl p-5 text-center border"
           style={{ background: 'var(--surface-muted)', borderColor: 'var(--border)' }}>
-          <div className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-3"
-            style={{ background: 'var(--ink)', color: 'var(--bg)' }}>
-            {user.initials}
+          {/* Avatar with upload overlay */}
+          <div className="relative w-20 h-20 mx-auto mb-3">
+            {avatarUrl
+              ? <img src={avatarUrl} alt={user.displayName} className="w-20 h-20 rounded-full object-cover" />
+              : <div className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold"
+                  style={{ background: 'var(--ink)', color: 'var(--bg)' }}>{user.initials}</div>
+            }
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={avatarUploading}
+              className="absolute inset-0 rounded-full flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+              style={{ background: 'rgba(0,0,0,0.45)' }}
+              title="Change photo">
+              {avatarUploading
+                ? <Loader2 size={18} className="animate-spin" style={{ color: 'white' }} />
+                : <Camera size={18} style={{ color: 'white' }} />
+              }
+            </button>
+            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { void handleAvatarChange(e); }} />
           </div>
+          {avatarError && <p className="text-xs mb-1" style={{ color: 'var(--danger)' }}>{avatarError}</p>}
           <div className="display text-xl font-700 mb-1" style={{ color: 'var(--ink)', letterSpacing: '-0.02em' }}>
             {user.displayName}
           </div>
