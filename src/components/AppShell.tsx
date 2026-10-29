@@ -106,44 +106,13 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
     void loadProfile();
   }, [session]);
 
-  // Load real conversations from Supabase via RPC (bypasses RLS timing issues)
+  // Load real conversations from Supabase
   useEffect(() => {
     let cancelled = false;
-    async function loadConversations(attempt = 0) {
-      const { data, error } = await supabase.rpc('get_my_conversations');
-      if (cancelled) return;
-      if (error || !data) {
-        // Retry once after 1.5s in case the JWT wasn't attached yet
-        if (attempt === 0) {
-          setTimeout(() => { void loadConversations(1); }, 1500);
-        }
-        return;
-      }
-      type Row = {
-        id: string; type: string; name: string | null; is_group: boolean;
-        avatar_url: string | null; updated_at: string;
-        other_name: string | null; other_handle: string | null;
-        last_content: string | null; last_type: string | null; last_at: string | null;
-      };
-      const result: Conversation[] = (data as Row[]).map((c) => {
-        const rawName = c.is_group ? c.name : c.other_name;
-        const name = rawName ?? 'Conversation';
-        const initials = name.slice(0, 2).toUpperCase();
-        const oneId = c.other_handle ? `${c.other_handle}.one` : undefined;
-        const lastMessage = c.last_type === 'payment' ? 'Sent USDC' : (c.last_content ?? '');
-        return {
-          id: c.id,
-          type: c.is_group ? 'group' : 'direct',
-          name,
-          oneId,
-          initials,
-          lastMessage,
-          lastMessageTime: new Date(c.last_at ?? c.updated_at),
-        };
-      });
+
+    async function applyResult(result: Conversation[]) {
       if (cancelled) return;
       setConversations(result);
-      // Merge fresh data into active conv, but never clear it
       setActiveConvRaw((prev) => {
         if (!prev || prev.id === 'allie') return prev;
         const fresh = result.find((c) => c.id === prev.id);
@@ -153,7 +122,66 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
         return merged;
       });
     }
-    void loadConversations();
+
+    async function loadViaFallback() {
+      // Direct query fallback — used when RPC not yet deployed
+      const userId = session.user.id;
+      const { data: memberships } = await supabase
+        .from('conversation_members').select('conversation_id').eq('user_id', userId);
+      if (cancelled || !memberships?.length) return;
+      const convIds = memberships.map((m) => m.conversation_id as string);
+      const { data: convs } = await supabase
+        .from('conversations').select('id, name, is_group, updated_at').in('id', convIds)
+        .order('updated_at', { ascending: false }).limit(50);
+      if (cancelled || !convs) return;
+      const result: Conversation[] = convs.map((c) => ({
+        id: c.id as string,
+        type: c.is_group ? 'group' : 'direct',
+        name: (c.name as string | null) ?? 'Conversation',
+        initials: ((c.name as string | null) ?? 'CO').slice(0, 2).toUpperCase(),
+        lastMessage: '',
+        lastMessageTime: new Date(c.updated_at as string),
+      }));
+      await applyResult(result);
+    }
+
+    async function loadConversations() {
+      // Try RPC first — single query, security definer, no RLS race
+      const { data, error } = await supabase.rpc('get_my_conversations');
+      if (cancelled) return;
+
+      if (error || !data || (data as unknown[]).length === 0) {
+        // RPC not deployed yet or returned empty — fall back to direct query
+        await loadViaFallback();
+        return;
+      }
+
+      type Row = {
+        id: string; name: string | null; is_group: boolean;
+        updated_at: string; other_name: string | null; other_handle: string | null;
+        last_content: string | null; last_type: string | null; last_at: string | null;
+      };
+      const result: Conversation[] = (data as Row[]).map((c) => {
+        const rawName = c.is_group ? c.name : c.other_name;
+        const name = rawName ?? 'Conversation';
+        return {
+          id: c.id,
+          type: c.is_group ? ('group' as const) : ('direct' as const),
+          name,
+          oneId: c.other_handle ? `${c.other_handle}.one` : undefined,
+          initials: name.slice(0, 2).toUpperCase(),
+          lastMessage: c.last_type === 'payment' ? 'Sent USDC' : (c.last_content ?? ''),
+          lastMessageTime: new Date(c.last_at ?? c.updated_at),
+        };
+      });
+      await applyResult(result);
+    }
+
+    // Run immediately, then retry once after 2s in case auth wasn't ready
+    void loadConversations().then(() => {
+      if (!cancelled) setTimeout(() => { void loadConversations(); }, 2000);
+    });
+
     return () => { cancelled = true; };
   }, [session, CONV_KEY]);
 
