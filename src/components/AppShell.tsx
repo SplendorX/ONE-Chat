@@ -253,7 +253,7 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
         {/* Middle pane */}
         <div className="w-80 xl:w-96 flex-shrink-0 flex flex-col border-r overflow-hidden" style={{ borderColor: 'var(--border)' }}>
           <AnimatePresence mode="wait">
-            <motion.div key={tab} className="flex flex-col h-full overflow-hidden"
+            <motion.div key={tab} className="flex flex-col overflow-hidden" style={{ height: '100%', minHeight: 0 }}
               initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }}
               transition={{ duration: 0.15, ease: 'easeOut' }}>
               {tab === 'chats' && <InboxView conversations={conversations} activeConvId={activeConv?.id} session={session} onSelect={setActiveConv} onConversationCreated={(conv) => { if (!conversations.find((c) => c.id === conv.id)) setConversations((p) => [conv, ...p]); setActiveConv(conv); }} />}
@@ -269,7 +269,7 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
         <div className="flex-1 overflow-hidden">
           <AnimatePresence mode="wait">
             {activeConv ? (
-              <motion.div key={activeConv.id} className="h-full"
+              <motion.div key={activeConv.id} className="h-full flex flex-col overflow-hidden"
                 initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
                 transition={{ duration: 0.18, ease: 'easeOut' }}>
                 <ErrorBoundary key={activeConv.id}>

@@ -19,7 +19,7 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.error) {
       return this.props.fallback ?? (
         <div className="flex flex-col items-center justify-center h-full gap-3 p-6"
-          style={{ background: 'var(--bg)' }}>
+          style={{ background: 'var(--bg)', minHeight: 0 }}>
           <div className="text-sm font-medium" style={{ color: 'var(--ink)' }}>Something went wrong</div>
           <div className="text-xs text-center max-w-xs" style={{ color: 'var(--muted)' }}>
             {this.state.error.message}
@@ -33,6 +33,11 @@ export class ErrorBoundary extends Component<Props, State> {
         </div>
       );
     }
-    return this.props.children;
+    // Render in a flex container so h-full children get a real height
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+        {this.props.children}
+      </div>
+    );
   }
 }
