@@ -69,7 +69,7 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
         .from('messages')
         .select('id, sender_id, type, content, metadata, created_at, edited_at')
         .eq('conversation_id', conversation.id)
-        .is('deleted_at', null)
+
         .order('created_at', { ascending: true })
         .limit(100);
       if (fetchErr) console.error('[ConversationView] load error', fetchErr);

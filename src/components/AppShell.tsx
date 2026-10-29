@@ -165,7 +165,7 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
           .from('messages')
           .select('content, type, created_at')
           .eq('conversation_id', c.id)
-          .is('deleted_at', null)
+  
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
