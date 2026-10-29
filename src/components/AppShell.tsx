@@ -110,11 +110,11 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
   useEffect(() => {
     async function loadConversations() {
       const userId = session.user.id;
-      // Get conversation IDs this user belongs to
-      const { data: memberships } = await supabase
+      const { data: memberships, error: memErr } = await supabase
         .from('conversation_members')
         .select('conversation_id')
         .eq('user_id', userId);
+      console.log('[AppShell] memberships', memberships?.length, memErr?.message);
       if (!memberships?.length) {
         setConversations([]);
         return;
@@ -181,6 +181,7 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
           lastMessageTime: new Date(c.updated_at as string),
         });
       }
+      console.log('[AppShell] loaded conversations', result.map(c => c.id));
       setConversations(result);
 
       // Merge fresh data (oneId, name) into the persisted active conv
@@ -188,12 +189,12 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
         if (!prev) return null;
         if (prev.id === 'allie') return prev;
         const fresh = result.find((c) => c.id === prev.id);
+        console.log('[AppShell] active conv restore:', prev.id, 'found in list:', !!fresh);
         if (fresh) {
           const merged = { ...prev, ...fresh };
           try { localStorage.setItem(CONV_KEY, JSON.stringify(merged)); } catch { /* ignore */ }
           return merged;
         }
-        // Conv not in list yet — keep as-is (it's stored in localStorage, still valid)
         return prev;
       });
     }
