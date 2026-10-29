@@ -38,12 +38,12 @@ export default function App() {
       setLoading(false);
     });
 
-    // Listen for auth changes (OAuth callback, sign-out, token refresh)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+    // Listen for auth changes — only update session on real changes, not token refreshes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
+      // TOKEN_REFRESHED fires on every load — ignore it to avoid re-triggering all effects
+      if (event === 'TOKEN_REFRESHED') return;
       setSession(s);
-      if (!s) {
-        setView('landing');
-      }
+      if (!s) setView('landing');
     });
     return () => subscription.unsubscribe();
   }, []);

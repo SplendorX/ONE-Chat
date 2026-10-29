@@ -112,7 +112,8 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
 
     async function applyResult(result: Conversation[]) {
       if (cancelled) return;
-      setConversations(result);
+      // Only update if we got real data — never wipe conversations on an empty result
+      if (result.length > 0) setConversations(result);
       setActiveConvRaw((prev) => {
         if (!prev || prev.id === 'allie') return prev;
         const fresh = result.find((c) => c.id === prev.id);
@@ -124,19 +125,19 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
     }
 
     async function loadViaFallback() {
-      // Direct query fallback — used when RPC not yet deployed
       const userId = session.user.id;
       const { data: memberships } = await supabase
         .from('conversation_members').select('conversation_id').eq('user_id', userId);
+      // If memberships empty — don't wipe; auth may not be ready yet
       if (cancelled || !memberships?.length) return;
       const convIds = memberships.map((m) => m.conversation_id as string);
       const { data: convs } = await supabase
         .from('conversations').select('id, name, is_group, updated_at').in('id', convIds)
         .order('updated_at', { ascending: false }).limit(50);
-      if (cancelled || !convs) return;
+      if (cancelled || !convs?.length) return;
       const result: Conversation[] = convs.map((c) => ({
         id: c.id as string,
-        type: c.is_group ? 'group' : 'direct',
+        type: c.is_group ? ('group' as const) : ('direct' as const),
         name: (c.name as string | null) ?? 'Conversation',
         initials: ((c.name as string | null) ?? 'CO').slice(0, 2).toUpperCase(),
         lastMessage: '',
@@ -146,15 +147,15 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
     }
 
     async function loadConversations() {
-      // Try RPC first — single query, security definer, no RLS race
       const { data, error } = await supabase.rpc('get_my_conversations');
       if (cancelled) return;
-
-      if (error || !data || (data as unknown[]).length === 0) {
-        // RPC not deployed yet or returned empty — fall back to direct query
+      // Only fall back if RPC fails with an actual error (function not found etc)
+      // If it returns empty array that's valid — new user with no convs
+      if (error) {
         await loadViaFallback();
         return;
       }
+      if (!data) return;
 
       type Row = {
         id: string; name: string | null; is_group: boolean;
