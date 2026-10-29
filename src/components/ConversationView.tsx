@@ -99,8 +99,13 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
   // Supabase Realtime subscription
   useEffect(() => {
     if (isAllie) return;
+    const channelName = `conv-${conversation.id}`;
+    // Remove any stale channel with the same name before subscribing (handles StrictMode double-mount)
+    const stale = supabase.getChannels().find((c) => c.topic === `realtime:${channelName}`);
+    if (stale) void supabase.removeChannel(stale);
+
     const channel = supabase
-      .channel(`conv-${conversation.id}`)
+      .channel(channelName)
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
@@ -112,7 +117,6 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
           content: string | null; metadata: Record<string, unknown> | null;
           created_at: string; edited_at: string | null;
         };
-        // Avoid duplicates from our own optimistic insert
         setMessages((prev) => {
           if (prev.some((p) => p.id === m.id)) return prev;
           return [...prev, {
@@ -128,9 +132,6 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
             deliveryState: 'delivered' as const,
           }];
         });
-      })
-      .on('presence', { event: 'sync' }, () => {
-        // Could track typing indicators via presence here
       })
       .subscribe();
     return () => { void supabase.removeChannel(channel); };

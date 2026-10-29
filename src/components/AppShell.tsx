@@ -196,8 +196,11 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
   // Subscribe to conversation list updates via Realtime
   useEffect(() => {
     const userId = session.user.id;
+    const channelName = `user-convs-${userId}`;
+    const stale = supabase.getChannels().find((c) => c.topic === `realtime:${channelName}`);
+    if (stale) void supabase.removeChannel(stale);
     const channel = supabase
-      .channel(`user-convs-${userId}`)
+      .channel(channelName)
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
