@@ -31,7 +31,7 @@ function groupByDate(messages: Message[]) {
 
 export function ConversationView({ conversation, user, session, onBack }: ConversationViewProps) {
   const isAllie = conversation.id === 'allie';
-  const ALLIE_WELCOME_DATE = new Date(0); // stable constant — avoids impure Date() in render
+  const ALLIE_WELCOME_DATE = useRef(new Date()).current; // stable, current time
   const allieWelcome: Message[] = isAllie ? [{
     id: 'allie-welcome',
     conversationId: 'allie',

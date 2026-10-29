@@ -346,8 +346,9 @@ Your role: help users send USDC to contacts by .one handle, understand transacti
       const data = await response.json() as { content: { type: string; text: string }[] };
       const reply = data.content.find((c) => c.type === 'text')?.text ?? 'Sorry, I could not process that.';
       res.json({ reply });
-    } catch (err) {
-      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    } catch {
+      // Return a graceful fallback instead of 500 so the UI stays friendly
+      res.json({ reply: "I'm having a moment — please try again shortly. You can still use the $ button to send USDC to any contact." });
     }
     return;
   }
