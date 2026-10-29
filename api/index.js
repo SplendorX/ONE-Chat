@@ -42262,6 +42262,87 @@ async function handler(req, res) {
       const { data: tx } = await supabase.from("transactions").insert({ circle_transaction_id: circleTxId, sender_id: user.userId, recipient_id: identity.user_id, amount: amountNum, asset: "USDC", blockchain: BLOCKCHAIN, state: "INITIATED", conversation_id: conversationId, idempotency_key: idempotencyKey }).select().single();
       await supabase.from("messages").insert({ conversation_id: conversationId, sender_id: user.userId, type: "payment", content: note ?? null, metadata: { transactionId: tx?.id, circleTransactionId: circleTxId, amount, asset: "USDC", recipientHandle: `${identity.handle}.one`, state: "INITIATED" } });
       res.json({ success: true, transactionId: tx?.id, circleTxId, state: "INITIATED" });
+      void (async () => {
+        const txDbId = tx?.id;
+        if (!txDbId) return;
+        for (let i = 0; i < 20; i++) {
+          await new Promise((r2) => setTimeout(r2, 3e3));
+          try {
+            const r2 = await fetch(`https://api.circle.com/v1/w3s/transactions/${circleTxId}`, { headers: { Authorization: `Bearer ${process.env.CIRCLE_API_KEY}` } });
+            if (!r2.ok) continue;
+            const d = await r2.json();
+            const st2 = d.data?.transaction?.state;
+            const th = d.data?.transaction?.txHash;
+            if (st2 && st2 !== "INITIATED") {
+              await supabase.from("transactions").update({ state: st2, tx_hash: th ?? null, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", txDbId);
+              if (["CONFIRMED", "COMPLETE", "SENT", "FAILED", "DENIED", "CANCELLED"].includes(st2)) break;
+            }
+          } catch {
+          }
+        }
+      })();
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+    return;
+  }
+  if (path === "/payment/send-address" && req.method === "POST") {
+    const user = await getUser(req, res);
+    if (!user) return;
+    const { destinationAddress, amount, conversationId, note } = req.body;
+    if (!destinationAddress || !amount || !conversationId) {
+      res.status(400).json({ error: "destinationAddress, amount, and conversationId required" });
+      return;
+    }
+    if (!/^0x[0-9a-fA-F]{40}$/.test(destinationAddress)) {
+      res.status(400).json({ error: "Invalid wallet address" });
+      return;
+    }
+    const amountNum = parseFloat(amount);
+    if (isNaN(amountNum) || amountNum <= 0) {
+      res.status(400).json({ error: "Invalid amount" });
+      return;
+    }
+    try {
+      const supabase = db();
+      const { data: senderWallet } = await supabase.from("wallets").select("circle_wallet_id").eq("user_id", user.userId).maybeSingle();
+      if (!senderWallet) {
+        res.status(400).json({ error: "Sender wallet not provisioned" });
+        return;
+      }
+      const sdk = circle();
+      const balRes = await sdk.getWalletTokenBalance({ id: senderWallet.circle_wallet_id });
+      const usdcToken = (balRes.data?.tokenBalances ?? []).find((b) => b.token?.symbol === "USDC" || b.token?.name?.includes("USD Coin"));
+      if (!usdcToken?.token?.id) {
+        res.status(400).json({ error: "USDC not found in sender wallet" });
+        return;
+      }
+      const idempotencyKey = randomUUID();
+      const txRes = await sdk.createTransaction({ walletId: senderWallet.circle_wallet_id, tokenId: usdcToken.token.id, destinationAddress, amounts: [amount], fee: { type: "level", config: { feeLevel: "MEDIUM" } }, idempotencyKey });
+      const circleTxId = txRes.data?.id;
+      if (!circleTxId) throw new Error("No transaction ID from Circle");
+      const { data: tx } = await supabase.from("transactions").insert({ circle_transaction_id: circleTxId, sender_id: user.userId, recipient_id: null, amount: amountNum, asset: "USDC", blockchain: BLOCKCHAIN, state: "INITIATED", conversation_id: conversationId, idempotency_key: idempotencyKey }).select().single();
+      await supabase.from("messages").insert({ conversation_id: conversationId, sender_id: user.userId, type: "payment", content: note ?? null, metadata: { transactionId: tx?.id, circleTransactionId: circleTxId, amount, asset: "USDC", recipientHandle: destinationAddress, state: "INITIATED" } });
+      res.json({ success: true, transactionId: tx?.id, circleTxId, state: "INITIATED" });
+      void (async () => {
+        const txDbId = tx?.id;
+        if (!txDbId) return;
+        for (let i = 0; i < 20; i++) {
+          await new Promise((r2) => setTimeout(r2, 3e3));
+          try {
+            const r2 = await fetch(`https://api.circle.com/v1/w3s/transactions/${circleTxId}`, { headers: { Authorization: `Bearer ${process.env.CIRCLE_API_KEY}` } });
+            if (!r2.ok) continue;
+            const d = await r2.json();
+            const st2 = d.data?.transaction?.state;
+            const th = d.data?.transaction?.txHash;
+            if (st2 && st2 !== "INITIATED") {
+              await supabase.from("transactions").update({ state: st2, tx_hash: th ?? null, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", txDbId);
+              if (["CONFIRMED", "COMPLETE", "SENT", "FAILED", "DENIED", "CANCELLED"].includes(st2)) break;
+            }
+          } catch {
+          }
+        }
+      })();
     } catch (err) {
       res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
     }

@@ -93,6 +93,18 @@ export async function sendUsdc(params: {
   );
 }
 
+export async function sendUsdcToAddress(params: {
+  destinationAddress: string;
+  amount: string;
+  conversationId: string;
+  note?: string;
+}) {
+  return post<{ success: boolean; transactionId: string; circleTxId: string; state: string }>(
+    '/payment/send-address',
+    params
+  );
+}
+
 export async function chatAllie(message: string, history: { role: 'user' | 'assistant'; content: string }[]) {
   return post<{ reply: string }>('/chat/allie', { message, history });
 }

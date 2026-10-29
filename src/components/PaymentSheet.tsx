@@ -2,7 +2,8 @@ import { useState, useCallback, useEffect } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { X, ArrowRight, Check, Loader2, AlertCircle } from 'lucide-react';
 import type { Conversation, Message } from '../types';
-import { sendUsdc, getPaymentStatus } from '../lib/api';
+import { sendUsdc, sendUsdcToAddress } from '../lib/api';
+import { supabase } from '../lib/supabase';
 import { formatUSDC } from '../lib/utils';
 
 interface PaymentSheetProps {
@@ -25,71 +26,99 @@ export function PaymentSheet({ conversation, session, onClose, onPaymentSent }: 
   const [resolvedHandle] = useState(
     conversation.oneId ? conversation.oneId.replace(/\.one$/, '') : conversation.name
   );
-  const [txId, setTxId] = useState('');
-  const [txState, setTxState] = useState('');
-  const [pollCount, setPollCount] = useState(0);
-  const [pollStart] = useState(() => Date.now());
-
+  const [sendMode, setSendMode] = useState<'handle' | 'address'>('handle');
+  const [externalAddress, setExternalAddress] = useState('');
   const amountNum = parseFloat(amount);
   const isValidAmount = !isNaN(amountNum) && amountNum > 0 && amountNum <= 10000;
+  const [txId, setTxId] = useState('');
+  const [txState, setTxState] = useState('');
 
-  // Circle terminal success states on Arc Testnet
   const SUCCESS_STATES = ['CONFIRMED', 'COMPLETE', 'SENT'];
   const FAILED_STATES = ['FAILED', 'DENIED', 'CANCELLED'];
-  const MAX_POLL_MS = 90_000; // give up after 90s
 
-  // Poll transaction status after submission
+  function resolveState(state: string) {
+    if (SUCCESS_STATES.includes(state)) setStep('success');
+    else if (FAILED_STATES.includes(state)) setStep('failed');
+  }
+
+  // Watch Supabase DB for state change — server updates it in background after Circle confirms
   useEffect(() => {
     if (step !== 'pending' || !txId) return;
-    let stopped = false;
+    let done = false;
 
-    // Hard timeout — stop polling and show success anyway (tx was accepted by Circle)
-    const timeout = setTimeout(() => {
-      if (!stopped) { stopped = true; setStep('success'); }
-    }, MAX_POLL_MS);
+    // Realtime: fires instantly when server updates the row
+    const channelName = `tx-status-${txId}`;
+    const stale = supabase.getChannels().find((c) => c.topic === `realtime:${channelName}`);
+    if (stale) void supabase.removeChannel(stale);
+    const channel = supabase.channel(channelName)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'transactions', filter: `id=eq.${txId}` },
+        (payload) => {
+          const st = (payload.new as { state?: string }).state ?? '';
+          setTxState(st);
+          if (!done && (SUCCESS_STATES.includes(st) || FAILED_STATES.includes(st))) {
+            done = true; resolveState(st);
+          }
+        })
+      .subscribe();
 
-    async function poll() {
-      // Also bail out if we've been polling too long
-      if (Date.now() - pollStart > MAX_POLL_MS) {
-        if (!stopped) { stopped = true; setStep('success'); }
-        return;
-      }
-      try {
-        const { transaction } = await getPaymentStatus(txId);
-        setTxState(transaction.state);
-        if (SUCCESS_STATES.includes(transaction.state)) {
-          if (!stopped) { stopped = true; setStep('success'); }
-        } else if (FAILED_STATES.includes(transaction.state)) {
-          if (!stopped) { stopped = true; setStep('failed'); }
-        } else {
-          // Still INITIATED / QUEUED / PENDING_RISK_SCREENING etc — keep polling
-          if (!stopped) setTimeout(() => setPollCount((c) => c + 1), 3000);
+    // Fallback: poll DB every 4s directly — no server hop, no Vercel timeout
+    const interval = setInterval(() => {
+      if (done) return;
+      void supabase.from('transactions').select('state').eq('id', txId).maybeSingle().then(({ data }) => {
+        const st = data?.state as string | undefined ?? '';
+        if (!st) return;
+        setTxState(st);
+        if (SUCCESS_STATES.includes(st) || FAILED_STATES.includes(st)) {
+          done = true; resolveState(st);
         }
-      } catch {
-        if (!stopped) setTimeout(() => setPollCount((c) => c + 1), 4000);
-      }
-    }
-    void poll();
-    return () => { stopped = true; clearTimeout(timeout); };
-  }, [step, txId, pollCount, pollStart]);
+      });
+    }, 4000);
+
+    // Hard cap: 90s → assume success (Circle accepted the tx)
+    const cap = setTimeout(() => { if (!done) { done = true; setStep('success'); } }, 90_000);
+
+    return () => {
+      done = true;
+      clearInterval(interval);
+      clearTimeout(cap);
+      void supabase.removeChannel(channel);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, txId]);
+
+  const isValidAddress = /^0x[0-9a-fA-F]{40}$/.test(externalAddress);
+  const canProceed = isValidAmount && (sendMode === 'handle' || isValidAddress);
 
   const handleSend = useCallback(async () => {
-    if (!isValidAmount) return;
+    if (!canProceed) return;
     setError('');
     setStep('pending');
     try {
-      const handle = resolvedHandle.toLowerCase().replace(/\.one$/, '').replace(/\s+/g, '');
+      let result: { transactionId: string; circleTxId: string; state: string };
+      let recipient: string;
 
-      const result = await sendUsdc({
-        recipientHandle: handle,
-        amount,
-        conversationId: conversation.id,
-        note: note.trim() || undefined,
-      });
+      if (sendMode === 'address') {
+        result = await sendUsdcToAddress({
+          destinationAddress: externalAddress,
+          amount,
+          conversationId: conversation.id,
+          note: note.trim() || undefined,
+        });
+        recipient = externalAddress;
+      } else {
+        const handle = resolvedHandle.toLowerCase().replace(/\.one$/, '').replace(/\s+/g, '');
+        result = await sendUsdc({
+          recipientHandle: handle,
+          amount,
+          conversationId: conversation.id,
+          note: note.trim() || undefined,
+        });
+        recipient = handle;
+      }
+
       setTxId(result.transactionId);
       setTxState(result.state);
 
-      // Immediately deliver the payment card message to UI
       const paymentMsg: Message = {
         id: result.transactionId,
         conversationId: conversation.id,
@@ -102,7 +131,7 @@ export function PaymentSheet({ conversation, session, onClose, onPaymentSent }: 
           circleTxId: result.circleTxId,
           amount,
           asset: 'USDC',
-          recipientHandle: handle,
+          recipientHandle: recipient,
           state: result.state,
         },
         createdAt: new Date(),
@@ -114,7 +143,7 @@ export function PaymentSheet({ conversation, session, onClose, onPaymentSent }: 
       setError(err instanceof Error ? err.message : 'Payment failed');
       setStep('failed');
     }
-  }, [isValidAmount, amount, note, conversation.id, session.user.id, resolvedHandle, onPaymentSent]);
+  }, [canProceed, sendMode, externalAddress, amount, note, conversation.id, session.user.id, resolvedHandle, onPaymentSent]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}>
@@ -171,17 +200,52 @@ export function PaymentSheet({ conversation, session, onClose, onPaymentSent }: 
               ))}
             </div>
 
-            {/* Recipient */}
-            <div className="rounded-2xl p-3 flex items-center gap-3" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border)' }}>
-              <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                style={{ background: 'var(--ink)', color: 'var(--bg)' }}>
-                {conversation.initials}
-              </div>
-              <div>
-                <div className="text-sm font-medium" style={{ color: 'var(--ink)' }}>{conversation.name}</div>
-                <div className="text-xs" style={{ color: 'var(--muted)' }}>Via ONE identity</div>
-              </div>
+            {/* Send mode toggle */}
+            <div className="flex rounded-xl overflow-hidden border" style={{ borderColor: 'var(--border)' }}>
+              {(['handle', 'address'] as const).map((m) => (
+                <button key={m} onClick={() => setSendMode(m)}
+                  className="flex-1 py-2 text-xs font-semibold transition-all"
+                  style={{
+                    background: sendMode === m ? 'var(--ink)' : 'var(--surface-muted)',
+                    color: sendMode === m ? 'var(--bg)' : 'var(--muted)',
+                  }}>
+                  {m === 'handle' ? '.one handle' : 'Wallet address'}
+                </button>
+              ))}
             </div>
+
+            {/* Recipient */}
+            {sendMode === 'handle' ? (
+              <div className="rounded-2xl p-3 flex items-center gap-3" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border)' }}>
+                <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                  style={{ background: 'var(--ink)', color: 'var(--bg)' }}>
+                  {conversation.initials}
+                </div>
+                <div>
+                  <div className="text-sm font-medium" style={{ color: 'var(--ink)' }}>{conversation.name}</div>
+                  <div className="text-xs" style={{ color: 'var(--muted)' }}>
+                    {conversation.oneId ?? 'Via ONE identity'}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <input
+                  type="text"
+                  value={externalAddress}
+                  onChange={(e) => setExternalAddress(e.target.value.trim())}
+                  placeholder="0x... wallet address"
+                  className="w-full px-4 py-3 rounded-2xl text-sm font-mono bg-transparent outline-none"
+                  style={{
+                    border: `1px solid ${externalAddress && !isValidAddress ? 'var(--danger)' : 'var(--border)'}`,
+                    color: 'var(--ink)',
+                  }}
+                />
+                {externalAddress && !isValidAddress && (
+                  <p className="text-xs mt-1 ml-1" style={{ color: 'var(--danger)' }}>Enter a valid 0x address</p>
+                )}
+              </div>
+            )}
 
             {/* Note */}
             <input
@@ -196,7 +260,7 @@ export function PaymentSheet({ conversation, session, onClose, onPaymentSent }: 
 
             <button
               onClick={() => setStep('review')}
-              disabled={!isValidAmount}
+              disabled={!canProceed}
               className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-semibold text-sm disabled:opacity-40"
               style={{ background: 'var(--ink)', color: 'var(--bg)' }}>
               Review payment <ArrowRight size={14} />
@@ -217,7 +281,7 @@ export function PaymentSheet({ conversation, session, onClose, onPaymentSent }: 
 
             <div className="space-y-2">
               {[
-                ['To', conversation.name],
+                ['To', sendMode === 'address' ? `${externalAddress.slice(0, 6)}...${externalAddress.slice(-4)}` : conversation.name],
                 ['Network', 'Arc Testnet'],
                 ['Asset', 'USDC'],
                 ['Network fee', 'Minimal (USDC)'],
