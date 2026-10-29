@@ -335,7 +335,7 @@ Your role: help users send USDC to contacts by .one handle, understand transacti
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
         body: JSON.stringify({
-          model: 'claude-3-5-haiku-20241022',
+          model: 'claude-3-haiku-20240307',
           max_tokens: 400,
           system: systemPrompt,
           messages: [...(history ?? []).slice(-10), { role: 'user', content: message }],
@@ -346,10 +346,8 @@ Your role: help users send USDC to contacts by .one handle, understand transacti
       const data = await response.json() as { content: { type: string; text: string }[] };
       const reply = data.content.find((c) => c.type === 'text')?.text ?? 'Sorry, I could not process that.';
       res.json({ reply });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error('[ALLIE] Anthropic error:', msg);
-      res.json({ reply: `[debug] ${msg}` });
+    } catch {
+      res.json({ reply: "I'm having a moment — please try again shortly." });
     }
     return;
   }
