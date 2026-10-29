@@ -261,7 +261,11 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all"
               style={{ color: 'var(--muted)' }}>
               <AllieIcon size={18} state="idle" />
-              ALLIE
+              <span className="flex-1 text-left">ALLIE</span>
+              {profile.isPro
+                ? <span className="text-xs font-bold px-1.5 py-0.5 rounded-full" style={{ background: '#C4A265', color: '#1a1612', fontSize: 9 }}>PRO</span>
+                : <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: 'var(--surface-strong)', color: 'var(--muted)', fontSize: 9 }}>FREE</span>
+              }
             </button>
           </nav>
 

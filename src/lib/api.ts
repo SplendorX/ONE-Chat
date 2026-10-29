@@ -105,8 +105,8 @@ export async function sendUsdcToAddress(params: {
   );
 }
 
-export async function chatAllie(message: string, history: { role: 'user' | 'assistant'; content: string }[]) {
-  return post<{ reply: string }>('/chat/allie', { message, history });
+export async function chatAllie(message: string, history: { role: 'user' | 'assistant'; content: string }[], isPro = false) {
+  return post<{ reply: string; usedLlm?: boolean; requiresPro?: boolean }>('/chat/allie', { message, history, isPro });
 }
 
 export async function getPaymentStatus(txId: string) {

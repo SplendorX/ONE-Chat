@@ -161,7 +161,7 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
       setOtherTyping(true);
       const newHistory: { role: 'user' | 'assistant'; content: string }[] = [...allieHistory, { role: 'user', content }];
       try {
-        const { reply } = await chatAllie(content, allieHistory);
+        const { reply, requiresPro } = await chatAllie(content, allieHistory, user.isPro);
         setAllieHistory([...newHistory, { role: 'assistant', content: reply }]);
         setOtherTyping(false);
         setMessages((prev) => [...prev, {
@@ -174,6 +174,7 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
           createdAt: new Date(Date.now()),
           isOwn: false,
           deliveryState: 'read',
+          metadata: requiresPro ? { requiresPro: true } : undefined,
         }]);
       } catch {
         setOtherTyping(false);
@@ -188,6 +189,50 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
           isOwn: false,
           deliveryState: 'read',
         }]);
+      }
+      setSending(false);
+      return;
+    }
+
+    // @ALLIE tag: route to ALLIE in any conversation
+    const allieTagMatch = content.match(/^@ALLIE\s+(.+)/i);
+    if (allieTagMatch) {
+      const allieQuery = allieTagMatch[1].trim();
+      // Post the user's message first
+      const userTagMsg: Message = {
+        id: `local-${Date.now()}`,
+        conversationId: conversation.id,
+        senderId: session.user.id,
+        senderName: user.displayName,
+        type: 'text',
+        content,
+        createdAt: new Date(),
+        isOwn: true,
+        deliveryState: 'sent',
+      };
+      setMessages((prev) => [...prev, userTagMsg]);
+      await supabase.from('messages').insert({ conversation_id: conversation.id, sender_id: session.user.id, type: 'text', content });
+      setOtherTyping(true);
+      try {
+        const { reply } = await chatAllie(allieQuery, [], user.isPro);
+        setOtherTyping(false);
+        // Post ALLIE's reply as a special message in this conversation
+        const allieReply: Message = {
+          id: `allie-tag-${Date.now()}`,
+          conversationId: conversation.id,
+          senderId: 'allie',
+          senderName: 'ALLIE',
+          type: 'text',
+          content: `@${user.displayName.split(' ')[0]} ${reply}`,
+          createdAt: new Date(),
+          isOwn: false,
+          deliveryState: 'read',
+        };
+        setMessages((prev) => [...prev, allieReply]);
+        // Also persist ALLIE's reply to the conversation
+        await supabase.from('messages').insert({ conversation_id: conversation.id, sender_id: session.user.id, type: 'text', content: `🤖 ALLIE: ${reply}` });
+      } catch {
+        setOtherTyping(false);
       }
       setSending(false);
       return;
@@ -232,7 +277,7 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
       setSending(false);
       if (typingTimeout) clearTimeout(typingTimeout);
     }
-  }, [text, sending, conversation.id, session.user.id, user.displayName, isAllie, typingTimeout]);
+  }, [text, sending, conversation.id, session.user.id, user.displayName, user.isPro, isAllie, typingTimeout, allieHistory]);
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -362,7 +407,7 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
               value={text}
               onChange={(e) => handleTextChange(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={isAllie ? 'Ask ALLIE anything…' : 'Message'}
+              placeholder={isAllie ? 'Ask ALLIE anything…' : 'Message… (type @ALLIE to tag AI)'}
               rows={1}
               className="flex-1 px-4 py-2.5 text-sm bg-transparent outline-none resize-none"
               style={{ color: 'var(--ink)', maxHeight: '120px' }}

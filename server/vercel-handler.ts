@@ -300,22 +300,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // POST /chat/allie
   if (path === '/chat/allie' && req.method === 'POST') {
     const user = await getUser(req, res); if (!user) return;
-    const { message, history } = req.body as {
+    const { message, history, isPro } = req.body as {
       message?: string;
       history?: { role: 'user' | 'assistant'; content: string }[];
+      isPro?: boolean;
     };
     if (!message) { res.status(400).json({ error: 'message required' }); return; }
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      const t = message.toLowerCase();
-      let reply = "I'm ALLIE, your ONE Chat financial assistant. I can help you send USDC, check your balance, and manage payments.";
-      if (t.includes('balance')) reply = 'Check your USDC balance in the Activity tab — it shows your live Arc Network balance.';
-      else if (t.includes('send') || t.includes('transfer')) reply = "Use the $ button in any conversation to send USDC. I'll guide you through it step by step.";
-      else if (t.includes('help')) reply = 'I can help with: sending USDC, checking balances, explaining transactions, and managing your ONE identity. What would you like to do?';
-      res.json({ reply }); return;
+    const t = message.toLowerCase().trim();
+
+    // --- Local handler: simple keywords never hit the LLM ---
+    const LOCAL_PATTERNS: [RegExp, string][] = [
+      [/^(hi|hey|hello|sup|yo|what'?s up|howdy)[\s!?.]*$/i, "Hey! I'm ALLIE — your financial assistant in ONE Chat. Ask me to send USDC, check your balance, or explain a transaction."],
+      [/^(thanks?|thank you|thx|ty|cheers)[\s!.]*$/i, "You're welcome! Let me know if you need anything else."],
+      [/^(bye|goodbye|see ya|later)[\s!.]*$/i, "Bye! I'll be here whenever you need me."],
+      [/^(ok|okay|got it|sure|nice|cool|great|awesome)[\s!.]*$/i, "Got it! Anything else I can help with?"],
+      [/\bwho are you\b|\bwhat are you\b/i, "I'm ALLIE — the AI financial assistant built into ONE Chat. I can help you send USDC, check balances, split bills, and more."],
+      [/\bwhat can you do\b|\bhelp\b/i, "I can help you: send USDC to any .one handle or wallet address, check your balance, explain transactions, and split bills. Just ask!"],
+      [/\bbalance\b/i, "You can see your live USDC balance in the You tab. Want me to help you send or request funds?"],
+      [/\b(send|transfer)\b.*\$?[\d.]+/i, "To send USDC, tap the $ button in any conversation and enter the amount. Want me to walk you through it?"],
+    ];
+    for (const [pattern, reply] of LOCAL_PATTERNS) {
+      if (pattern.test(t)) { res.json({ reply, usedLlm: false }); return; }
     }
 
+    // --- Pro gate: non-pro users get a helpful nudge instead of LLM ---
+    // Verify pro status server-side from DB (don't trust client isPro blindly)
+    const { data: profileRow } = await db().from('profiles').select('is_pro').eq('id', user.userId).maybeSingle();
+    const userIsPro = (profileRow?.is_pro as boolean | null) ?? isPro ?? false;
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+
+    if (!userIsPro || !apiKey) {
+      const proNudge = userIsPro
+        ? "I'm having a moment — please try again shortly."
+        : "That's a great question! Upgrade to ONE Pro to unlock full AI-powered responses from me. I can still help with basic commands — try 'send', 'balance', or 'help'.";
+      res.json({ reply: proNudge, usedLlm: false, requiresPro: !userIsPro }); return;
+    }
+
+    // --- LLM path: Pro users only ---
     try {
       const { data: wallet } = await db().from('wallets').select('circle_wallet_id, address').eq('user_id', user.userId).maybeSingle();
       let balanceContext = '';
@@ -326,11 +348,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           if (usdc) balanceContext = `\nThe user's current USDC balance is $${usdc.amount} on Arc Network.`;
         } catch { /* ignore */ }
       }
-
-      const systemPrompt = `You are ALLIE, the AI financial assistant embedded in ONE Chat — a messaging app where users send USDC payments using human-readable .one identities on Arc Network (a blockchain where USDC is the native gas token, so there is no separate ETH or gas token to worry about).${balanceContext}
-
-Your role: help users send USDC to contacts by .one handle, understand transaction history, check balances, split bills, and manage payments. Be concise, warm, and practical — this is a chat interface so keep replies short (2–4 sentences). When a user wants to send money, direct them to the $ button in any conversation. Never invent transaction details, amounts, or addresses. If asked something outside finance or ONE Chat, politely redirect.`;
-
+      const systemPrompt = `You are ALLIE, the AI financial assistant in ONE Chat — a messaging app where users send USDC on Arc Network (USDC is the native gas token; no separate ETH needed).${balanceContext}
+Help users: send USDC by .one handle or wallet address, understand transactions, check balances, split bills. Be concise and warm — 2–4 sentences max. Direct payment actions to the $ button. Never invent addresses or amounts. Politely redirect off-topic questions.`;
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
@@ -345,9 +364,9 @@ Your role: help users send USDC to contacts by .one handle, understand transacti
       if (!response.ok) throw new Error(`Anthropic error ${response.status}: ${await response.text()}`);
       const data = await response.json() as { content: { type: string; text: string }[] };
       const reply = data.content.find((c) => c.type === 'text')?.text ?? 'Sorry, I could not process that.';
-      res.json({ reply });
+      res.json({ reply, usedLlm: true });
     } catch {
-      res.json({ reply: "I'm having a moment — please try again shortly." });
+      res.json({ reply: "I'm having a moment — please try again shortly.", usedLlm: false });
     }
     return;
   }

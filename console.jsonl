@@ -703,3 +703,23 @@
 {"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1793311608011}
 {"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1793311608037}
 {"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1793311608040}
+{"level":"debug","message":"[vite] connected.","timestamp":1793313293005}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793313534608}
+{"level":"debug","message":"[vite] hot updated: /src/components/OnboardingFlow.tsx","timestamp":1793313534609}
+{"level":"debug","message":"[vite] hot updated: /src/components/ActivityView.tsx","timestamp":1793313534610}
+{"level":"debug","message":"[vite] hot updated: /src/components/ProfileView.tsx","timestamp":1793313534610}
+{"level":"debug","message":"[vite] hot updated: /src/components/ConversationView.tsx","timestamp":1793313534611}
+{"level":"debug","message":"[vite] hot updated: /src/components/GiftSheet.tsx","timestamp":1793313534611}
+{"level":"debug","message":"[vite] hot updated: /src/components/PaymentSheet.tsx","timestamp":1793313534612}
+{"level":"debug","message":"[vite] hot updated: /src/components/ConversationView.tsx","timestamp":1793313535508}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793313535508}
+{"level":"debug","message":"[vite] hot updated: /src/components/ConversationView.tsx","timestamp":1793313549050}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793313549050}
+{"level":"debug","message":"[vite] hot updated: /src/components/ConversationView.tsx","timestamp":1793313552754}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793313552755}
+{"level":"debug","message":"[vite] hot updated: /src/components/ConversationView.tsx","timestamp":1793313562578}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793313562579}
+{"level":"debug","message":"[vite] hot updated: /src/components/AppShell.tsx","timestamp":1793313566756}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793313566756}
+{"level":"debug","message":"[vite] hot updated: /src/components/ConversationView.tsx","timestamp":1793313575136}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793313575137}
