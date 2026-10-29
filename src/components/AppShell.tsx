@@ -40,16 +40,20 @@ const ALLIE_CONV: Conversation = {
 };
 
 export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellProps) {
-  // Restore tab + active conversation from sessionStorage so reloads don't reset state
+  // localStorage keys scoped per user — survive hard refresh, defined as stable strings
+  const uid = session.user.id;
+  // These are stable for the lifetime of the component (uid never changes)
+  const TAB_KEY = `one-tab-${uid}` as const;
+  const CONV_KEY = `one-conv-${uid}` as const;
+
   const [tab, setTabRaw] = useState<AppTab>(() => {
-    try { return (sessionStorage.getItem('one-tab') as AppTab) ?? 'chats'; } catch { return 'chats'; }
+    try { return (localStorage.getItem(TAB_KEY) as AppTab) ?? 'chats'; } catch { return 'chats'; }
   });
   const [activeConv, setActiveConvRaw] = useState<Conversation | null>(() => {
     try {
-      const saved = sessionStorage.getItem('one-active-conv-obj');
+      const saved = localStorage.getItem(CONV_KEY);
       if (!saved) return null;
       const parsed = JSON.parse(saved) as Conversation & { lastMessageTime?: string | Date };
-      // Rehydrate Date fields
       if (parsed.lastMessageTime && typeof parsed.lastMessageTime === 'string') {
         parsed.lastMessageTime = new Date(parsed.lastMessageTime);
       }
@@ -61,14 +65,14 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
 
   function setTab(t: AppTab) {
     setTabRaw(t);
-    try { sessionStorage.setItem('one-tab', t); } catch { /* ignore */ }
+    try { localStorage.setItem(TAB_KEY, t); } catch { /* ignore */ }
   }
 
   function setActiveConv(conv: Conversation | null) {
     setActiveConvRaw(conv);
     try {
-      if (conv) sessionStorage.setItem('one-active-conv-obj', JSON.stringify(conv));
-      else sessionStorage.removeItem('one-active-conv-obj');
+      if (conv) localStorage.setItem(CONV_KEY, JSON.stringify(conv));
+      else localStorage.removeItem(CONV_KEY);
     } catch { /* ignore */ }
   }
 
@@ -179,19 +183,17 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
       }
       setConversations(result);
 
-      // After loading, update the active conversation with fresh data (e.g. new oneId)
-      // If not found in list, keep existing sessionStorage value — don't clear it
+      // Merge fresh data (oneId, name) into the persisted active conv
       setActiveConvRaw((prev) => {
         if (!prev) return null;
         if (prev.id === 'allie') return prev;
         const fresh = result.find((c) => c.id === prev.id);
         if (fresh) {
           const merged = { ...prev, ...fresh };
-          try { sessionStorage.setItem('one-active-conv-obj', JSON.stringify(merged)); } catch { /* ignore */ }
+          try { localStorage.setItem(CONV_KEY, JSON.stringify(merged)); } catch { /* ignore */ }
           return merged;
         }
-        // Conv not in list yet (timing) — keep existing state, trigger a retry
-        void loadConversations();
+        // Conv not in list yet — keep as-is (it's stored in localStorage, still valid)
         return prev;
       });
     }
