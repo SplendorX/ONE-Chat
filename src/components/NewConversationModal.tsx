@@ -77,30 +77,23 @@ export function NewConversationModal({ session, initialQuery, onClose, onCreated
     setCreating(result.userId);
     setError(null);
     try {
-      const userId = session.user.id;
-      const { data: myMemberships } = await supabase.from('conversation_members').select('conversation_id').eq('user_id', userId);
-      const myConvIds = (myMemberships ?? []).map((m) => m.conversation_id as string);
-      let existingConvId: string | null = null;
-      if (myConvIds.length > 0) {
-        const { data: shared } = await supabase.from('conversation_members').select('conversation_id').eq('user_id', result.userId).in('conversation_id', myConvIds);
-        if (shared && shared.length > 0) {
-          const sharedIds = shared.map((m) => m.conversation_id as string);
-          const { data: convCheck } = await supabase.from('conversations').select('id').in('id', sharedIds).eq('is_group', false).limit(1).maybeSingle();
-          if (convCheck) existingConvId = convCheck.id as string;
-        }
-      }
-      if (existingConvId) { onCreated({ id: existingConvId, type: 'direct', name: result.displayName, oneId: result.handle, initials: result.initials, isOnline: false }); return; }
-      const { data: conv, error: convErr } = await supabase.from('conversations').insert({ is_group: false }).select('id').single();
-      if (convErr) throw convErr;
-      const convId = conv.id as string;
-      const { error: membersErr } = await supabase.from('conversation_members').insert([
-        { conversation_id: convId, user_id: userId },
-        { conversation_id: convId, user_id: result.userId },
-      ]);
-      if (membersErr) throw membersErr;
-      onCreated({ id: convId, type: 'direct', name: result.displayName, oneId: result.handle, initials: result.initials, isOnline: false });
+      // Use a security-definer RPC so RLS can't block the membership lookup
+      const { data: convId, error: rpcErr } = await supabase
+        .rpc('find_or_create_dm', { other_user_id: result.userId });
+      if (rpcErr) throw rpcErr;
+      onCreated({
+        id: convId as string,
+        type: 'direct',
+        name: result.displayName,
+        oneId: result.handle,
+        initials: result.initials,
+        isOnline: false,
+      });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start conversation');
+      const detail = err instanceof Error
+        ? err.message
+        : (err as { message?: string })?.message ?? JSON.stringify(err);
+      setError(detail || 'Failed to start conversation');
       setCreating(null);
     }
   }
@@ -110,29 +103,24 @@ export function NewConversationModal({ session, initialQuery, onClose, onCreated
     setCreatingGroup(true);
     setError(null);
     try {
-      const userId = session.user.id;
-      const { data: conv, error: convErr } = await supabase
-        .from('conversations')
-        .insert({ is_group: true, name: groupName.trim() })
-        .select('id')
-        .single();
-      if (convErr) throw convErr;
-      const convId = conv.id as string;
-      const members = [
-        { conversation_id: convId, user_id: userId },
-        ...selectedMembers.map((m) => ({ conversation_id: convId, user_id: m.userId })),
-      ];
-      const { error: membersErr } = await supabase.from('conversation_members').insert(members);
-      if (membersErr) throw membersErr;
+      const { data: convId, error: rpcErr } = await supabase
+        .rpc('create_group_conversation', {
+          group_name: groupName.trim(),
+          member_ids: selectedMembers.map((m) => m.userId),
+        });
+      if (rpcErr) throw rpcErr;
       onCreated({
-        id: convId,
+        id: convId as string,
         type: 'group',
         name: groupName.trim(),
         initials: groupName.trim().slice(0, 2).toUpperCase(),
         isOnline: false,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create group');
+      const detail = err instanceof Error
+        ? err.message
+        : (err as { message?: string })?.message ?? JSON.stringify(err);
+      setError(detail || 'Failed to create group');
       setCreatingGroup(false);
     }
   }

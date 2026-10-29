@@ -451,3 +451,27 @@
 {"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793194268294}
 {"level":"debug","message":"[vite] hot updated: /src/components/InboxView.tsx","timestamp":1793194268295}
 {"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793194268295}
+{"level":"warn","message":"Error restoring session i: Failed to connect to MetaMask\n    at Object.connect (chrome-extension://ejbalbakoplchlghecdalmeeeajnimhm/scripts/inpage.js:7:84292)","timestamp":1793195009448,"stack":"i: Failed to connect to MetaMask\n    at Object.connect (chrome-extension://ejbalbakoplchlghecdalmeeeajnimhm/scripts/inpage.js:7:84292)"}
+{"level":"warn","message":"(previous line repeated 1× more)","timestamp":1793195010009}
+{"level":"error","message":"Unhandled promise rejection: i: Failed to connect to MetaMask\n    at Object.connect (chrome-extension://ejbalbakoplchlghecdalmeeeajnimhm/scripts/inpage.js:7:84292)","timestamp":1793195010009,"stack":"i: Failed to connect to MetaMask\n    at Object.connect (chrome-extension://ejbalbakoplchlghecdalmeeeajnimhm/scripts/inpage.js:7:84292)"}
+{"level":"error","message":"Unhandled promise rejection: i: Failed to connect to MetaMask\n    at Object.connect (chrome-extension://ejbalbakoplchlghecdalmeeeajnimhm/scripts/inpage.js:7:84292)","timestamp":1793195010009,"stack":"i: Failed to connect to MetaMask\n    at Object.connect (chrome-extension://ejbalbakoplchlghecdalmeeeajnimhm/scripts/inpage.js:7:84292)"}
+{"level":"warn","message":"Error restoring session i: Failed to connect to MetaMask\n    at Object.connect (chrome-extension://ejbalbakoplchlghecdalmeeeajnimhm/scripts/inpage.js:7:84292)","timestamp":1793195015805,"stack":"i: Failed to connect to MetaMask\n    at Object.connect (chrome-extension://ejbalbakoplchlghecdalmeeeajnimhm/scripts/inpage.js:7:84292)"}
+{"level":"warn","message":"(previous line repeated 1× more)","timestamp":1793195015807}
+{"level":"error","message":"Unhandled promise rejection: i: Failed to connect to MetaMask\n    at Object.connect (chrome-extension://ejbalbakoplchlghecdalmeeeajnimhm/scripts/inpage.js:7:84292)","timestamp":1793195015807,"stack":"i: Failed to connect to MetaMask\n    at Object.connect (chrome-extension://ejbalbakoplchlghecdalmeeeajnimhm/scripts/inpage.js:7:84292)"}
+{"level":"error","message":"Unhandled promise rejection: i: Failed to connect to MetaMask\n    at Object.connect (chrome-extension://ejbalbakoplchlghecdalmeeeajnimhm/scripts/inpage.js:7:84292)","timestamp":1793195015807,"stack":"i: Failed to connect to MetaMask\n    at Object.connect (chrome-extension://ejbalbakoplchlghecdalmeeeajnimhm/scripts/inpage.js:7:84292)"}
+{"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1793196084437}
+{"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1793196085528}
+{"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1793196093407}
+{"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1793196377399}
+{"level":"debug","message":"[vite] connected.","timestamp":1793207646370}
+{"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1793207646377}
+{"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1793207646377}
+{"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1793280004925}
+{"level":"debug","message":"[vite] connected.","timestamp":1793280026954}
+{"level":"debug","message":"[vite] connected.","timestamp":1793280220290}
+{"level":"debug","message":"[vite] hot updated: /src/components/NewConversationModal.tsx","timestamp":1793280248496}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793280248496}
+{"level":"debug","message":"[vite] hot updated: /src/components/NewConversationModal.tsx","timestamp":1793280258294}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793280258294}
+{"level":"debug","message":"[vite] hot updated: /src/components/NewConversationModal.tsx","timestamp":1793280258295}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793280258295}
