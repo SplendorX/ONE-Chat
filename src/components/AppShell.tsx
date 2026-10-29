@@ -110,11 +110,12 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
   useEffect(() => {
     async function loadConversations() {
       const userId = session.user.id;
-      const { data: memberships, error: memErr } = await supabase
+      // Ensure the session token is fresh before RLS-gated queries
+      await supabase.auth.getSession();
+      const { data: memberships } = await supabase
         .from('conversation_members')
         .select('conversation_id')
         .eq('user_id', userId);
-      console.log('[AppShell] memberships', memberships?.length, memErr?.message);
       if (!memberships?.length) {
         setConversations([]);
         return;
@@ -181,20 +182,19 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
           lastMessageTime: new Date(c.updated_at as string),
         });
       }
-      console.log('[AppShell] loaded conversations', result.map(c => c.id));
       setConversations(result);
 
-      // Merge fresh data (oneId, name) into the persisted active conv
+      // Restore active conv — merge fresh data, or keep localStorage value if still valid
       setActiveConvRaw((prev) => {
         if (!prev) return null;
         if (prev.id === 'allie') return prev;
         const fresh = result.find((c) => c.id === prev.id);
-        console.log('[AppShell] active conv restore:', prev.id, 'found in list:', !!fresh);
         if (fresh) {
           const merged = { ...prev, ...fresh };
           try { localStorage.setItem(CONV_KEY, JSON.stringify(merged)); } catch { /* ignore */ }
           return merged;
         }
+        // Not in list yet — keep the localStorage value; messages will still load from Supabase
         return prev;
       });
     }

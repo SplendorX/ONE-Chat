@@ -42089,7 +42089,7 @@ async function getUser(req, res) {
   }
   return { userId: data.user.id, userEmail: data.user.email };
 }
-async function pollCircleUntilTerminal(circleTxId, maxMs = 7e3) {
+async function pollCircleUntilTerminal(circleTxId, maxMs = 25e3) {
   const deadline = Date.now() + maxMs;
   let lastState = "INITIATED";
   let lastHash = null;
@@ -42109,7 +42109,7 @@ async function pollCircleUntilTerminal(circleTxId, maxMs = 7e3) {
       }
     } catch {
     }
-    if (Date.now() < deadline - 1500) await new Promise((r2) => setTimeout(r2, 1500));
+    if (Date.now() < deadline - 2e3) await new Promise((r2) => setTimeout(r2, 2e3));
   }
   return { state: lastState, txHash: lastHash };
 }
@@ -42267,7 +42267,7 @@ async function handler(req, res) {
     }).select("id").single();
     if (insertErr || !tx?.id) throw new Error(`DB insert failed: ${insertErr?.message ?? "no row returned"}`);
     const txDbId = tx.id;
-    const { state: finalState, txHash } = await pollCircleUntilTerminal(circleTxId, 7e3);
+    const { state: finalState, txHash } = await pollCircleUntilTerminal(circleTxId, 25e3);
     await params.supabase.from("transactions").update({
       state: finalState,
       tx_hash: txHash,

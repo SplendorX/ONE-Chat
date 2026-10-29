@@ -35,7 +35,7 @@ async function getUser(req: VercelRequest, res: VercelResponse): Promise<{ userI
 }
 
 // Poll Circle REST API until terminal state or timeout
-async function pollCircleUntilTerminal(circleTxId: string, maxMs = 7000): Promise<{ state: string; txHash: string | null }> {
+async function pollCircleUntilTerminal(circleTxId: string, maxMs = 25000): Promise<{ state: string; txHash: string | null }> {
   const deadline = Date.now() + maxMs;
   let lastState = 'INITIATED';
   let lastHash: string | null = null;
@@ -54,7 +54,7 @@ async function pollCircleUntilTerminal(circleTxId: string, maxMs = 7000): Promis
         if (TERMINAL_STATES.includes(st)) return { state: st, txHash: th };
       }
     } catch { /* ignore — keep polling */ }
-    if (Date.now() < deadline - 1500) await new Promise((r) => setTimeout(r, 1500));
+    if (Date.now() < deadline - 2000) await new Promise((r) => setTimeout(r, 2000));
   }
   return { state: lastState, txHash: lastHash };
 }
@@ -205,8 +205,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const txDbId = tx.id as string;
 
-    // Poll Circle synchronously (up to 7s) before responding
-    const { state: finalState, txHash } = await pollCircleUntilTerminal(circleTxId, 7000);
+    // Poll Circle synchronously (up to 25s) before responding
+    const { state: finalState, txHash } = await pollCircleUntilTerminal(circleTxId, 25000);
 
     // Update DB with whatever state we got
     await params.supabase.from('transactions').update({
