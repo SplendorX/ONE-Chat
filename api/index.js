@@ -1697,10 +1697,10 @@ var require_phoenix_cjs = __commonJS({
        * @param {Params | (() => Params)} params
        * @param {Socket} socket
        */
-      constructor(topic, params, socket) {
+      constructor(topic, params2, socket) {
         this.state = CHANNEL_STATES.closed;
         this.topic = topic;
-        this.params = closure(params || {});
+        this.params = closure(params2 || {});
         this.socket = socket;
         this.bindings = [];
         this.bindingRef = 0;
@@ -2106,12 +2106,12 @@ var require_phoenix_cjs = __commonJS({
         }
         return queryStr.join("&");
       }
-      static appendParams(url2, params) {
-        if (Object.keys(params).length === 0) {
+      static appendParams(url2, params2) {
+        if (Object.keys(params2).length === 0) {
           return url2;
         }
         let prefix = url2.match(/\?/) ? "&" : "?";
-        return `${url2}${prefix}${this.serialize(params)}`;
+        return `${url2}${prefix}${this.serialize(params2)}`;
       }
     };
     var arrayBufferToBase64 = (buffer) => {
@@ -2827,10 +2827,10 @@ var require_phoenix_cjs = __commonJS({
        * Passing params to connect is deprecated; pass them in the Socket constructor instead:
        * `new Socket("/socket", {params: {user_id: userToken}})`.
        */
-      connect(params) {
-        if (params) {
+      connect(params2) {
+        if (params2) {
           console && console.log("passing params to connect is deprecated. Instead pass :params to the Socket constructor");
-          this.params = closure(params);
+          this.params = closure(params2);
         }
         if (this.conn && !this.disconnecting) {
           return;
@@ -3489,8 +3489,8 @@ var require_channelAdapter = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     var constants_1 = require_constants();
     var ChannelAdapter = class {
-      constructor(socket, topic, params) {
-        const phoenixParams = phoenixChannelParams(params);
+      constructor(socket, topic, params2) {
+        const phoenixParams = phoenixChannelParams(params2);
         this.channel = socket.getSocket().channel(topic, phoenixParams);
         this.socket = socket;
       }
@@ -3804,10 +3804,10 @@ var require_RealtimeChannel = __commonJS({
        * const channel = new RealtimeChannel('realtime:public:messages', { config: {} }, client)
        * ```
        */
-      constructor(topic, params = { config: {} }, socket) {
+      constructor(topic, params2 = { config: {} }, socket) {
         var _a2, _b;
         this.topic = topic;
-        this.params = params;
+        this.params = params2;
         this.socket = socket;
         this.bindings = {};
         this.subTopic = topic.replace(/^realtime:/i, "");
@@ -3815,7 +3815,7 @@ var require_RealtimeChannel = __commonJS({
           broadcast: { ack: false, self: false },
           presence: { key: "", enabled: false },
           private: false
-        }, params.config);
+        }, params2.config);
         this.channelAdapter = new channelAdapter_1.default(this.socket.socketAdapter, topic, this.params);
         this.presence = new RealtimePresence_1.default(this);
         this._onClose(() => {
@@ -4914,11 +4914,11 @@ var require_RealtimeClient = __commonJS({
        *
        * @category Realtime
        */
-      channel(topic, params = { config: {} }) {
+      channel(topic, params2 = { config: {} }) {
         const realtimeTopic = `realtime:${topic}`;
         const exists = this.getChannels().find((c) => c.topic === realtimeTopic);
         if (!exists) {
-          const chan = new RealtimeChannel_1.default(`realtime:${topic}`, params, this);
+          const chan = new RealtimeChannel_1.default(`realtime:${topic}`, params2, this);
           this._cancelPendingDisconnect();
           this.channels.push(chan);
           return chan;
@@ -6201,13 +6201,13 @@ var require_fetch = __commonJS({
       throw new errors_1.AuthApiError(_getErrorMessage2(data), error.status || 500, errorCode);
     }
     var _getRequestParams2 = (method, options, parameters, body) => {
-      const params = { method, headers: (options === null || options === void 0 ? void 0 : options.headers) || {} };
+      const params2 = { method, headers: (options === null || options === void 0 ? void 0 : options.headers) || {} };
       if (method === "GET") {
-        return params;
+        return params2;
       }
-      params.headers = Object.assign({ "Content-Type": "application/json;charset=UTF-8" }, options === null || options === void 0 ? void 0 : options.headers);
-      params.body = JSON.stringify(body);
-      return Object.assign(Object.assign({}, params), parameters);
+      params2.headers = Object.assign({ "Content-Type": "application/json;charset=UTF-8" }, options === null || options === void 0 ? void 0 : options.headers);
+      params2.body = JSON.stringify(body);
+      return Object.assign(Object.assign({}, params2), parameters);
     };
     async function _request(fetcher, method, url2, options) {
       var _a2;
@@ -6593,9 +6593,9 @@ var require_GoTrueAdminApi = __commonJS({
        * })
        * ```
        */
-      async generateLink(params) {
+      async generateLink(params2) {
         try {
-          const { options } = params, rest = tslib_1.__rest(params, ["options"]);
+          const { options } = params2, rest = tslib_1.__rest(params2, ["options"]);
           const body = Object.assign(Object.assign({}, rest), options);
           if ("newEmail" in rest) {
             body.new_email = rest === null || rest === void 0 ? void 0 : rest.newEmail;
@@ -6740,7 +6740,7 @@ var require_GoTrueAdminApi = __commonJS({
        * })
        * ```
        */
-      async listUsers(params) {
+      async listUsers(params2) {
         var _a2, _b, _c2, _d, _e2, _f, _g;
         try {
           const pagination = { nextPage: null, lastPage: 0, total: 0 };
@@ -6748,8 +6748,8 @@ var require_GoTrueAdminApi = __commonJS({
             headers: this.headers,
             noResolveJson: true,
             query: {
-              page: (_b = (_a2 = params === null || params === void 0 ? void 0 : params.page) === null || _a2 === void 0 ? void 0 : _a2.toString()) !== null && _b !== void 0 ? _b : "",
-              per_page: (_d = (_c2 = params === null || params === void 0 ? void 0 : params.perPage) === null || _c2 === void 0 ? void 0 : _c2.toString()) !== null && _d !== void 0 ? _d : ""
+              page: (_b = (_a2 = params2 === null || params2 === void 0 ? void 0 : params2.page) === null || _a2 === void 0 ? void 0 : _a2.toString()) !== null && _b !== void 0 ? _b : "",
+              per_page: (_d = (_c2 = params2 === null || params2 === void 0 ? void 0 : params2.perPage) === null || _c2 === void 0 ? void 0 : _c2.toString()) !== null && _d !== void 0 ? _d : ""
             },
             xform: fetch_1._noResolveJsonResponse
           });
@@ -7058,10 +7058,10 @@ var require_GoTrueAdminApi = __commonJS({
           throw error;
         }
       }
-      async _listFactors(params) {
-        (0, helpers_1.validateUUID)(params.userId);
+      async _listFactors(params2) {
+        (0, helpers_1.validateUUID)(params2.userId);
         try {
-          const { data, error } = await (0, fetch_1._request)(this.fetch, "GET", `${this.url}/admin/users/${params.userId}/factors`, {
+          const { data, error } = await (0, fetch_1._request)(this.fetch, "GET", `${this.url}/admin/users/${params2.userId}/factors`, {
             headers: this.headers,
             xform: (factors) => {
               return { data: { factors }, error: null };
@@ -7075,11 +7075,11 @@ var require_GoTrueAdminApi = __commonJS({
           throw error;
         }
       }
-      async _deleteFactor(params) {
-        (0, helpers_1.validateUUID)(params.userId);
-        (0, helpers_1.validateUUID)(params.id);
+      async _deleteFactor(params2) {
+        (0, helpers_1.validateUUID)(params2.userId);
+        (0, helpers_1.validateUUID)(params2.id);
         try {
-          const data = await (0, fetch_1._request)(this.fetch, "DELETE", `${this.url}/admin/users/${params.userId}/factors/${params.id}`, {
+          const data = await (0, fetch_1._request)(this.fetch, "DELETE", `${this.url}/admin/users/${params2.userId}/factors/${params2.id}`, {
             headers: this.headers
           });
           return { data, error: null };
@@ -7096,7 +7096,7 @@ var require_GoTrueAdminApi = __commonJS({
        *
        * This function should only be called on a server. Never expose your `service_role` key in the browser.
        */
-      async _listOAuthClients(params) {
+      async _listOAuthClients(params2) {
         var _a2, _b, _c2, _d, _e2, _f, _g;
         try {
           const pagination = { nextPage: null, lastPage: 0, total: 0 };
@@ -7104,8 +7104,8 @@ var require_GoTrueAdminApi = __commonJS({
             headers: this.headers,
             noResolveJson: true,
             query: {
-              page: (_b = (_a2 = params === null || params === void 0 ? void 0 : params.page) === null || _a2 === void 0 ? void 0 : _a2.toString()) !== null && _b !== void 0 ? _b : "",
-              per_page: (_d = (_c2 = params === null || params === void 0 ? void 0 : params.perPage) === null || _c2 === void 0 ? void 0 : _c2.toString()) !== null && _d !== void 0 ? _d : ""
+              page: (_b = (_a2 = params2 === null || params2 === void 0 ? void 0 : params2.page) === null || _a2 === void 0 ? void 0 : _a2.toString()) !== null && _b !== void 0 ? _b : "",
+              per_page: (_d = (_c2 = params2 === null || params2 === void 0 ? void 0 : params2.perPage) === null || _c2 === void 0 ? void 0 : _c2.toString()) !== null && _d !== void 0 ? _d : ""
             },
             xform: fetch_1._noResolveJsonResponse
           });
@@ -7136,10 +7136,10 @@ var require_GoTrueAdminApi = __commonJS({
        *
        * This function should only be called on a server. Never expose your `service_role` key in the browser.
        */
-      async _createOAuthClient(params) {
+      async _createOAuthClient(params2) {
         try {
           return await (0, fetch_1._request)(this.fetch, "POST", `${this.url}/admin/oauth/clients`, {
-            body: params,
+            body: params2,
             headers: this.headers,
             xform: (client) => {
               return { data: client, error: null };
@@ -7179,10 +7179,10 @@ var require_GoTrueAdminApi = __commonJS({
        *
        * This function should only be called on a server. Never expose your `service_role` key in the browser.
        */
-      async _updateOAuthClient(clientId, params) {
+      async _updateOAuthClient(clientId, params2) {
         try {
           return await (0, fetch_1._request)(this.fetch, "PUT", `${this.url}/admin/oauth/clients/${clientId}`, {
-            body: params,
+            body: params2,
             headers: this.headers,
             xform: (client) => {
               return { data: client, error: null };
@@ -7241,11 +7241,11 @@ var require_GoTrueAdminApi = __commonJS({
        *
        * This function should only be called on a server. Never expose your `service_role` key in the browser.
        */
-      async _listCustomProviders(params) {
+      async _listCustomProviders(params2) {
         try {
           const query = {};
-          if (params === null || params === void 0 ? void 0 : params.type) {
-            query.type = params.type;
+          if (params2 === null || params2 === void 0 ? void 0 : params2.type) {
+            query.type = params2.type;
           }
           return await (0, fetch_1._request)(this.fetch, "GET", `${this.url}/admin/custom-providers`, {
             headers: this.headers,
@@ -7273,10 +7273,10 @@ var require_GoTrueAdminApi = __commonJS({
        *
        * This function should only be called on a server. Never expose your `service_role` key in the browser.
        */
-      async _createCustomProvider(params) {
+      async _createCustomProvider(params2) {
         try {
           return await (0, fetch_1._request)(this.fetch, "POST", `${this.url}/admin/custom-providers`, {
-            body: params,
+            body: params2,
             headers: this.headers,
             xform: (provider) => {
               return { data: provider, error: null };
@@ -7319,10 +7319,10 @@ var require_GoTrueAdminApi = __commonJS({
        *
        * This function should only be called on a server. Never expose your `service_role` key in the browser.
        */
-      async _updateCustomProvider(identifier, params) {
+      async _updateCustomProvider(identifier, params2) {
         try {
           return await (0, fetch_1._request)(this.fetch, "PUT", `${this.url}/admin/custom-providers/${identifier}`, {
-            body: params,
+            body: params2,
             headers: this.headers,
             xform: (provider) => {
               return { data: provider, error: null };
@@ -7359,10 +7359,10 @@ var require_GoTrueAdminApi = __commonJS({
        *
        * This function should only be called on a server. Never expose your secret key in the browser.
        */
-      async _adminListPasskeys(params) {
-        (0, helpers_1.validateUUID)(params.userId);
+      async _adminListPasskeys(params2) {
+        (0, helpers_1.validateUUID)(params2.userId);
         try {
-          return await (0, fetch_1._request)(this.fetch, "GET", `${this.url}/admin/users/${params.userId}/passkeys`, { headers: this.headers, xform: (data) => ({ data, error: null }) });
+          return await (0, fetch_1._request)(this.fetch, "GET", `${this.url}/admin/users/${params2.userId}/passkeys`, { headers: this.headers, xform: (data) => ({ data, error: null }) });
         } catch (error) {
           if ((0, errors_1.isAuthError)(error)) {
             return { data: null, error };
@@ -7375,11 +7375,11 @@ var require_GoTrueAdminApi = __commonJS({
        *
        * This function should only be called on a server. Never expose your secret key in the browser.
        */
-      async _adminDeletePasskey(params) {
-        (0, helpers_1.validateUUID)(params.userId);
-        (0, helpers_1.validateUUID)(params.passkeyId);
+      async _adminDeletePasskey(params2) {
+        (0, helpers_1.validateUUID)(params2.userId);
+        (0, helpers_1.validateUUID)(params2.passkeyId);
         try {
-          await (0, fetch_1._request)(this.fetch, "DELETE", `${this.url}/admin/users/${params.userId}/passkeys/${params.passkeyId}`, { headers: this.headers, noResolveJson: true });
+          await (0, fetch_1._request)(this.fetch, "DELETE", `${this.url}/admin/users/${params2.userId}/passkeys/${params2.passkeyId}`, { headers: this.headers, noResolveJson: true });
           return { data: null, error: null };
         } catch (error) {
           if ((0, errors_1.isAuthError)(error)) {
@@ -8197,8 +8197,8 @@ var require_webauthn = __commonJS({
        * @returns {Promise<AuthMFAEnrollWebauthnResponse>} Enrolled factor details or error
        * @see {@link https://w3c.github.io/webauthn/#sctn-registering-a-new-credential W3C WebAuthn Spec - Registering a New Credential}
        */
-      async _enroll(params) {
-        return this.client.mfa.enroll(Object.assign(Object.assign({}, params), { factorType: "webauthn" }));
+      async _enroll(params2) {
+        return this.client.mfa.enroll(Object.assign(Object.assign({}, params2), { factorType: "webauthn" }));
       }
       /**
        * Challenge for WebAuthn credential creation or authentication.
@@ -8737,18 +8737,18 @@ var require_GoTrueClient = __commonJS({
       async _initialize() {
         var _a2;
         try {
-          let params = {};
+          let params2 = {};
           let callbackUrlType = "none";
           if ((0, helpers_1.isBrowser)()) {
-            params = (0, helpers_1.parseParametersFromURL)(window.location.href);
-            if (this._isImplicitGrantCallback(params)) {
+            params2 = (0, helpers_1.parseParametersFromURL)(window.location.href);
+            if (this._isImplicitGrantCallback(params2)) {
               callbackUrlType = "implicit";
-            } else if (await this._isPKCECallback(params)) {
+            } else if (await this._isPKCECallback(params2)) {
               callbackUrlType = "pkce";
             }
           }
           if ((0, helpers_1.isBrowser)() && this.detectSessionInUrl && callbackUrlType !== "none") {
-            const { data, error } = await this._getSessionFromURL(params, callbackUrlType);
+            const { data, error } = await this._getSessionFromURL(params2, callbackUrlType);
             if (error) {
               this._debug("#_initialize()", "error detecting session from URL", error);
               if ((0, errors_1.isAuthImplicitGrantRedirectError)(error)) {
@@ -10304,18 +10304,18 @@ var require_GoTrueClient = __commonJS({
        * const { data, error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: 'email'})
        * ```
        */
-      async verifyOtp(params) {
+      async verifyOtp(params2) {
         var _a2, _b;
         try {
           let redirectTo = void 0;
           let captchaToken = void 0;
-          if ("options" in params) {
-            redirectTo = (_a2 = params.options) === null || _a2 === void 0 ? void 0 : _a2.redirectTo;
-            captchaToken = (_b = params.options) === null || _b === void 0 ? void 0 : _b.captchaToken;
+          if ("options" in params2) {
+            redirectTo = (_a2 = params2.options) === null || _a2 === void 0 ? void 0 : _a2.redirectTo;
+            captchaToken = (_b = params2.options) === null || _b === void 0 ? void 0 : _b.captchaToken;
           }
           const { data, error } = await (0, fetch_1._request)(this.fetch, "POST", `${this.url}/verify`, {
             headers: this.headers,
-            body: Object.assign(Object.assign({}, params), { gotrue_meta_security: { captcha_token: captchaToken } }),
+            body: Object.assign(Object.assign({}, params2), { gotrue_meta_security: { captcha_token: captchaToken } }),
             redirectTo,
             xform: fetch_1._sessionResponse
           });
@@ -10330,7 +10330,7 @@ var require_GoTrueClient = __commonJS({
           const user = data.user;
           if (session === null || session === void 0 ? void 0 : session.access_token) {
             await this._saveSession(session);
-            await this._notifyAllSubscribers(params.type == "recovery" ? "PASSWORD_RECOVERY" : "SIGNED_IN", session);
+            await this._notifyAllSubscribers(params2.type == "recovery" ? "PASSWORD_RECOVERY" : "SIGNED_IN", session);
           }
           return this._returnResult({ data: { user, session }, error: null });
         } catch (error) {
@@ -10393,7 +10393,7 @@ var require_GoTrueClient = __commonJS({
        *   }
        * ```
        */
-      async signInWithSSO(params) {
+      async signInWithSSO(params2) {
         var _a2, _b, _c2, _d;
         let flowId = null;
         try {
@@ -10404,11 +10404,11 @@ var require_GoTrueClient = __commonJS({
             [codeChallenge, codeChallengeMethod, flowId] = await this._getCodeChallengeAndMethod();
           }
           const result = await (0, fetch_1._request)(this.fetch, "POST", `${this.url}/sso`, {
-            body: Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({}, "providerId" in params ? { provider_id: params.providerId } : null), "domain" in params ? { domain: params.domain } : null), { redirect_to: this._maybeAppendFlowIdToRedirect((_a2 = params.options) === null || _a2 === void 0 ? void 0 : _a2.redirectTo, flowId) }), ((_b = params === null || params === void 0 ? void 0 : params.options) === null || _b === void 0 ? void 0 : _b.captchaToken) ? { gotrue_meta_security: { captcha_token: params.options.captchaToken } } : null), { skip_http_redirect: true, code_challenge: codeChallenge, code_challenge_method: codeChallengeMethod }),
+            body: Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({}, "providerId" in params2 ? { provider_id: params2.providerId } : null), "domain" in params2 ? { domain: params2.domain } : null), { redirect_to: this._maybeAppendFlowIdToRedirect((_a2 = params2.options) === null || _a2 === void 0 ? void 0 : _a2.redirectTo, flowId) }), ((_b = params2 === null || params2 === void 0 ? void 0 : params2.options) === null || _b === void 0 ? void 0 : _b.captchaToken) ? { gotrue_meta_security: { captcha_token: params2.options.captchaToken } } : null), { skip_http_redirect: true, code_challenge: codeChallenge, code_challenge_method: codeChallengeMethod }),
             headers: this.headers,
             xform: fetch_1._ssoResponse
           });
-          if (((_c2 = result.data) === null || _c2 === void 0 ? void 0 : _c2.url) && (0, helpers_1.isBrowser)() && !((_d = params.options) === null || _d === void 0 ? void 0 : _d.skipBrowserRedirect)) {
+          if (((_c2 = result.data) === null || _c2 === void 0 ? void 0 : _c2.url) && (0, helpers_1.isBrowser)() && !((_d = params2.options) === null || _d === void 0 ? void 0 : _d.skipBrowserRedirect)) {
             window.location.assign(result.data.url);
           }
           return this._returnResult(result);
@@ -11449,15 +11449,15 @@ var require_GoTrueClient = __commonJS({
       /**
        * Gets the session data from a URL string
        */
-      async _getSessionFromURL(params, callbackUrlType) {
+      async _getSessionFromURL(params2, callbackUrlType) {
         var _a2;
         try {
           if (!(0, helpers_1.isBrowser)())
             throw new errors_1.AuthImplicitGrantRedirectError("No browser detected.");
-          if (params.error || params.error_description || params.error_code) {
-            throw new errors_1.AuthImplicitGrantRedirectError(params.error_description || "Error in URL with unspecified error_description", {
-              error: params.error || "unspecified_error",
-              code: params.error_code || "unspecified_code"
+          if (params2.error || params2.error_description || params2.error_code) {
+            throw new errors_1.AuthImplicitGrantRedirectError(params2.error_description || "Error in URL with unspecified error_description", {
+              error: params2.error || "unspecified_error",
+              code: params2.error_code || "unspecified_code"
             });
           }
           switch (callbackUrlType) {
@@ -11475,10 +11475,10 @@ var require_GoTrueClient = __commonJS({
           }
           if (callbackUrlType === "pkce") {
             this._debug("#_initialize()", "begin", "is PKCE flow", true);
-            if (!params.code)
+            if (!params2.code)
               throw new errors_1.AuthPKCEGrantCodeExchangeError("No code detected.");
-            const { data: data2, error: error2 } = await this._exchangeCodeForSession(params.code, {
-              flowId: params[constants_1.PKCE_FLOW_ID_PARAM]
+            const { data: data2, error: error2 } = await this._exchangeCodeForSession(params2.code, {
+              flowId: params2[constants_1.PKCE_FLOW_ID_PARAM]
             });
             if (error2)
               throw error2;
@@ -11491,7 +11491,7 @@ var require_GoTrueClient = __commonJS({
               error: null
             };
           }
-          const { provider_token, provider_refresh_token, access_token, refresh_token, expires_in, expires_at, token_type } = params;
+          const { provider_token, provider_refresh_token, access_token, refresh_token, expires_in, expires_at, token_type } = params2;
           if (!access_token || !expires_in || !refresh_token || !token_type) {
             throw new errors_1.AuthImplicitGrantRedirectError("No session defined in URL");
           }
@@ -11526,7 +11526,7 @@ var require_GoTrueClient = __commonJS({
           };
           window.location.hash = "";
           this._debug("#_getSessionFromURL()", "clearing window.location.hash");
-          return this._returnResult({ data: { session, redirectType: params.type }, error: null });
+          return this._returnResult({ data: { session, redirectType: params2.type }, error: null });
         } catch (error) {
           if ((0, errors_1.isAuthError)(error)) {
             return this._returnResult({ data: { session: null, redirectType: null }, error });
@@ -11541,20 +11541,20 @@ var require_GoTrueClient = __commonJS({
        * if the URL should be processed as a Supabase auth callback. This allows users to exclude
        * URLs from other OAuth providers (e.g., Facebook Login) that also return access_token in the fragment.
        */
-      _isImplicitGrantCallback(params) {
+      _isImplicitGrantCallback(params2) {
         if (typeof this.detectSessionInUrl === "function") {
-          return this.detectSessionInUrl(new URL(window.location.href), params);
+          return this.detectSessionInUrl(new URL(window.location.href), params2);
         }
-        return Boolean(params.access_token || params.error || params.error_description || params.error_code);
+        return Boolean(params2.access_token || params2.error || params2.error_description || params2.error_code);
       }
       /**
        * Checks if the current URL and backing storage contain parameters given by a PKCE flow
        */
-      async _isPKCECallback(params) {
-        if (!params.code) {
+      async _isPKCECallback(params2) {
+        if (!params2.code) {
           return false;
         }
-        const flowId = (0, helpers_1.validatePKCEFlowId)(params[constants_1.PKCE_FLOW_ID_PARAM]);
+        const flowId = (0, helpers_1.validatePKCEFlowId)(params2[constants_1.PKCE_FLOW_ID_PARAM]);
         if (flowId && await (0, helpers_1.getItemAsync)(this.storage, (0, helpers_1.pkceVerifierSlotKey)(this.storageKey, flowId))) {
           return true;
         }
@@ -12827,7 +12827,7 @@ var require_GoTrueClient = __commonJS({
       async _getCodeChallengeAndMethod(isPasswordRecovery = false) {
         return (0, helpers_1.getCodeChallengeAndMethod)(this.storage, this.storageKey, isPasswordRecovery, (evictedFlowId) => this._debug("#_getCodeChallengeAndMethod()", "evicted oldest pending PKCE verifier slot", evictedFlowId));
       }
-      async _unenroll(params) {
+      async _unenroll(params2) {
         try {
           return await this._useSession(async (result) => {
             var _a2;
@@ -12835,7 +12835,7 @@ var require_GoTrueClient = __commonJS({
             if (sessionError) {
               return this._returnResult({ data: null, error: sessionError });
             }
-            return await (0, fetch_1._request)(this.fetch, "DELETE", `${this.url}/factors/${params.factorId}`, {
+            return await (0, fetch_1._request)(this.fetch, "DELETE", `${this.url}/factors/${params2.factorId}`, {
               headers: this.headers,
               jwt: (_a2 = sessionData === null || sessionData === void 0 ? void 0 : sessionData.session) === null || _a2 === void 0 ? void 0 : _a2.access_token
             });
@@ -12847,7 +12847,7 @@ var require_GoTrueClient = __commonJS({
           throw error;
         }
       }
-      async _enroll(params) {
+      async _enroll(params2) {
         try {
           return await this._useSession(async (result) => {
             var _a2, _b;
@@ -12855,7 +12855,7 @@ var require_GoTrueClient = __commonJS({
             if (sessionError) {
               return this._returnResult({ data: null, error: sessionError });
             }
-            const body = Object.assign({ friendly_name: params.friendlyName, factor_type: params.factorType }, params.factorType === "phone" ? { phone: params.phone } : params.factorType === "totp" ? { issuer: params.issuer } : {});
+            const body = Object.assign({ friendly_name: params2.friendlyName, factor_type: params2.factorType }, params2.factorType === "phone" ? { phone: params2.phone } : params2.factorType === "totp" ? { issuer: params2.issuer } : {});
             const { data, error } = await (0, fetch_1._request)(this.fetch, "POST", `${this.url}/factors`, {
               body,
               headers: this.headers,
@@ -12864,7 +12864,7 @@ var require_GoTrueClient = __commonJS({
             if (error) {
               return this._returnResult({ data: null, error });
             }
-            if (params.factorType === "totp" && data.type === "totp" && ((_b = data === null || data === void 0 ? void 0 : data.totp) === null || _b === void 0 ? void 0 : _b.qr_code)) {
+            if (params2.factorType === "totp" && data.type === "totp" && ((_b = data === null || data === void 0 ? void 0 : data.totp) === null || _b === void 0 ? void 0 : _b.qr_code)) {
               data.totp.qr_code = `data:image/svg+xml;utf-8,${data.totp.qr_code}`;
             }
             return this._returnResult({ data, error: null });
@@ -12876,7 +12876,7 @@ var require_GoTrueClient = __commonJS({
           throw error;
         }
       }
-      async _verify(params) {
+      async _verify(params2) {
         const run = async () => {
           try {
             return await this._useSession(async (result) => {
@@ -12885,10 +12885,10 @@ var require_GoTrueClient = __commonJS({
               if (sessionError) {
                 return this._returnResult({ data: null, error: sessionError });
               }
-              const body = Object.assign({ challenge_id: params.challengeId }, "webauthn" in params ? {
-                webauthn: Object.assign(Object.assign({}, params.webauthn), { credential_response: params.webauthn.type === "create" ? (0, webauthn_1.serializeCredentialCreationResponse)(params.webauthn.credential_response) : (0, webauthn_1.serializeCredentialRequestResponse)(params.webauthn.credential_response) })
-              } : { code: params.code });
-              const { data, error } = await (0, fetch_1._request)(this.fetch, "POST", `${this.url}/factors/${params.factorId}/verify`, {
+              const body = Object.assign({ challenge_id: params2.challengeId }, "webauthn" in params2 ? {
+                webauthn: Object.assign(Object.assign({}, params2.webauthn), { credential_response: params2.webauthn.type === "create" ? (0, webauthn_1.serializeCredentialCreationResponse)(params2.webauthn.credential_response) : (0, webauthn_1.serializeCredentialRequestResponse)(params2.webauthn.credential_response) })
+              } : { code: params2.code });
+              const { data, error } = await (0, fetch_1._request)(this.fetch, "POST", `${this.url}/factors/${params2.factorId}/verify`, {
                 body,
                 headers: this.headers,
                 jwt: (_a2 = sessionData === null || sessionData === void 0 ? void 0 : sessionData.session) === null || _a2 === void 0 ? void 0 : _a2.access_token
@@ -12912,7 +12912,7 @@ var require_GoTrueClient = __commonJS({
         }
         return run();
       }
-      async _challenge(params) {
+      async _challenge(params2) {
         const run = async () => {
           try {
             return await this._useSession(async (result) => {
@@ -12921,8 +12921,8 @@ var require_GoTrueClient = __commonJS({
               if (sessionError) {
                 return this._returnResult({ data: null, error: sessionError });
               }
-              const response = await (0, fetch_1._request)(this.fetch, "POST", `${this.url}/factors/${params.factorId}/challenge`, {
-                body: params,
+              const response = await (0, fetch_1._request)(this.fetch, "POST", `${this.url}/factors/${params2.factorId}/challenge`, {
+                body: params2,
                 headers: this.headers,
                 jwt: (_a2 = sessionData === null || sessionData === void 0 ? void 0 : sessionData.session) === null || _a2 === void 0 ? void 0 : _a2.access_token
               });
@@ -12961,17 +12961,17 @@ var require_GoTrueClient = __commonJS({
       /**
        * {@link GoTrueMFAApi#challengeAndVerify}
        */
-      async _challengeAndVerify(params) {
+      async _challengeAndVerify(params2) {
         const { data: challengeData, error: challengeError } = await this._challenge({
-          factorId: params.factorId
+          factorId: params2.factorId
         });
         if (challengeError) {
           return this._returnResult({ data: null, error: challengeError });
         }
         return await this._verify({
-          factorId: params.factorId,
+          factorId: params2.factorId,
           challengeId: challengeData.id,
-          code: params.code
+          code: params2.code
         });
       }
       /**
@@ -13086,7 +13086,7 @@ var require_GoTrueClient = __commonJS({
       /**
        * {@link AuthMFARecoveryCodesApi#generate}
        */
-      async _generateRecoveryCodes(params) {
+      async _generateRecoveryCodes(params2) {
         (0, helpers_1.assertRecoveryCodesExperimentalEnabled)(this.experimental);
         try {
           return await this._useSession(async (result) => {
@@ -13097,7 +13097,7 @@ var require_GoTrueClient = __commonJS({
             }
             const { data, error } = await (0, fetch_1._request)(this.fetch, "POST", `${this.url}/factors/recovery-codes`, {
               // The body is optional server-side; only send one when a name was given.
-              body: (params === null || params === void 0 ? void 0 : params.friendlyName) ? { friendly_name: params.friendlyName } : void 0,
+              body: (params2 === null || params2 === void 0 ? void 0 : params2.friendlyName) ? { friendly_name: params2.friendlyName } : void 0,
               headers: this.headers,
               jwt: (_a2 = sessionData === null || sessionData === void 0 ? void 0 : sessionData.session) === null || _a2 === void 0 ? void 0 : _a2.access_token
             });
@@ -13116,7 +13116,7 @@ var require_GoTrueClient = __commonJS({
       /**
        * {@link AuthMFARecoveryCodesApi#verify}
        */
-      async _verifyRecoveryCode(params) {
+      async _verifyRecoveryCode(params2) {
         (0, helpers_1.assertRecoveryCodesExperimentalEnabled)(this.experimental);
         const run = async () => {
           try {
@@ -13127,7 +13127,7 @@ var require_GoTrueClient = __commonJS({
                 return this._returnResult({ data: null, error: sessionError });
               }
               const { data, error } = await (0, fetch_1._request)(this.fetch, "POST", `${this.url}/factors/recovery-codes/verify`, {
-                body: { code: params.code },
+                body: { code: params2.code },
                 headers: this.headers,
                 jwt: (_a2 = sessionData === null || sessionData === void 0 ? void 0 : sessionData.session) === null || _a2 === void 0 ? void 0 : _a2.access_token
               });
@@ -13666,7 +13666,7 @@ var require_GoTrueClient = __commonJS({
        * Verify passkey registration with the credential response.
        * The credentialResponse should be the serialized output of navigator.credentials.create().
        */
-      async _verifyPasskeyRegistration(params) {
+      async _verifyPasskeyRegistration(params2) {
         try {
           return await this._useSession(async (result) => {
             const { data: { session }, error: sessionError } = result;
@@ -13680,8 +13680,8 @@ var require_GoTrueClient = __commonJS({
               headers: this.headers,
               jwt: session.access_token,
               body: {
-                challenge_id: params.challengeId,
-                credential: params.credential
+                challenge_id: params2.challengeId,
+                credential: params2.credential
               }
             });
             if (error) {
@@ -13700,13 +13700,13 @@ var require_GoTrueClient = __commonJS({
        * Start passkey authentication.
        * Returns WebAuthn credential request options to pass to navigator.credentials.get().
        */
-      async _startPasskeyAuthentication(params) {
+      async _startPasskeyAuthentication(params2) {
         var _a2;
         try {
           const { data, error } = await (0, fetch_1._request)(this.fetch, "POST", `${this.url}/passkeys/authentication/options`, {
             headers: this.headers,
             body: {
-              gotrue_meta_security: { captcha_token: (_a2 = params === null || params === void 0 ? void 0 : params.options) === null || _a2 === void 0 ? void 0 : _a2.captchaToken }
+              gotrue_meta_security: { captcha_token: (_a2 = params2 === null || params2 === void 0 ? void 0 : params2.options) === null || _a2 === void 0 ? void 0 : _a2.captchaToken }
             }
           });
           if (error) {
@@ -13724,13 +13724,13 @@ var require_GoTrueClient = __commonJS({
        * Verify passkey authentication and create a session.
        * The credential should be the serialized output of navigator.credentials.get().
        */
-      async _verifyPasskeyAuthentication(params) {
+      async _verifyPasskeyAuthentication(params2) {
         try {
           const { data, error } = await (0, fetch_1._request)(this.fetch, "POST", `${this.url}/passkeys/authentication/verify`, {
             headers: this.headers,
             body: {
-              challenge_id: params.challengeId,
-              credential: params.credential
+              challenge_id: params2.challengeId,
+              credential: params2.credential
             },
             xform: fetch_1._sessionResponse
           });
@@ -13782,7 +13782,7 @@ var require_GoTrueClient = __commonJS({
       /**
        * Update a passkey.
        */
-      async _updatePasskey(params) {
+      async _updatePasskey(params2) {
         try {
           return await this._useSession(async (result) => {
             const { data: { session }, error: sessionError } = result;
@@ -13792,10 +13792,10 @@ var require_GoTrueClient = __commonJS({
             if (!session) {
               return this._returnResult({ data: null, error: new errors_1.AuthSessionMissingError() });
             }
-            const { data, error } = await (0, fetch_1._request)(this.fetch, "PATCH", `${this.url}/passkeys/${params.passkeyId}`, {
+            const { data, error } = await (0, fetch_1._request)(this.fetch, "PATCH", `${this.url}/passkeys/${params2.passkeyId}`, {
               headers: this.headers,
               jwt: session.access_token,
-              body: { friendly_name: params.friendlyName }
+              body: { friendly_name: params2.friendlyName }
             });
             if (error) {
               return this._returnResult({ data: null, error });
@@ -13812,7 +13812,7 @@ var require_GoTrueClient = __commonJS({
       /**
        * Delete a passkey.
        */
-      async _deletePasskey(params) {
+      async _deletePasskey(params2) {
         try {
           return await this._useSession(async (result) => {
             const { data: { session }, error: sessionError } = result;
@@ -13822,7 +13822,7 @@ var require_GoTrueClient = __commonJS({
             if (!session) {
               return this._returnResult({ data: null, error: new errors_1.AuthSessionMissingError() });
             }
-            const { error } = await (0, fetch_1._request)(this.fetch, "DELETE", `${this.url}/passkeys/${params.passkeyId}`, {
+            const { error } = await (0, fetch_1._request)(this.fetch, "DELETE", `${this.url}/passkeys/${params2.passkeyId}`, {
               headers: this.headers,
               jwt: session.access_token,
               noResolveJson: true
@@ -24112,25 +24112,25 @@ var require_form_data = __commonJS({
         cb(null, knownLength);
       });
     };
-    FormData3.prototype.submit = function(params, cb) {
+    FormData3.prototype.submit = function(params2, cb) {
       var request;
       var options;
       var defaults2 = { method: "post" };
-      if (typeof params === "string") {
-        params = parseUrl2(params);
+      if (typeof params2 === "string") {
+        params2 = parseUrl2(params2);
         options = populate({
-          port: params.port,
-          path: params.pathname,
-          host: params.hostname,
-          protocol: params.protocol
+          port: params2.port,
+          path: params2.pathname,
+          host: params2.hostname,
+          protocol: params2.protocol
         }, defaults2);
       } else {
-        options = populate(params, defaults2);
+        options = populate(params2, defaults2);
         if (!options.port) {
           options.port = options.protocol === "https:" ? 443 : 80;
         }
       }
-      options.headers = this.getHeaders(params.headers);
+      options.headers = this.getHeaders(params2.headers);
       if (options.protocol === "https:") {
         request = https2.request(options);
       } else {
@@ -30536,21 +30536,21 @@ var handleError = async (error, reject, options, namespace) => {
   } else reject(new StorageUnknownError(_getErrorMessage(error), error, namespace));
 };
 var _getRequestParams = (method, options, parameters, body) => {
-  const params = {
+  const params2 = {
     method,
     headers: (options === null || options === void 0 ? void 0 : options.headers) || {}
   };
-  if (method === "GET" || method === "HEAD" || !body) return _objectSpread22(_objectSpread22({}, params), parameters);
+  if (method === "GET" || method === "HEAD" || !body) return _objectSpread22(_objectSpread22({}, params2), parameters);
   if (isPlainObject(body)) {
     var _contentType;
     const headers = (options === null || options === void 0 ? void 0 : options.headers) || {};
     let contentType;
     for (const [key, value] of Object.entries(headers)) if (key.toLowerCase() === "content-type") contentType = value;
-    params.headers = setHeader(headers, "Content-Type", (_contentType = contentType) !== null && _contentType !== void 0 ? _contentType : "application/json");
-    params.body = JSON.stringify(body);
-  } else params.body = body;
-  if (options === null || options === void 0 ? void 0 : options.duplex) params.duplex = options.duplex;
-  return _objectSpread22(_objectSpread22({}, params), parameters);
+    params2.headers = setHeader(headers, "Content-Type", (_contentType = contentType) !== null && _contentType !== void 0 ? _contentType : "application/json");
+    params2.body = JSON.stringify(body);
+  } else params2.body = body;
+  if (options === null || options === void 0 ? void 0 : options.duplex) params2.duplex = options.duplex;
+  return _objectSpread22(_objectSpread22({}, params2), parameters);
 };
 async function _handleRequest(fetcher, method, url2, options, parameters, body, namespace) {
   return new Promise((resolve, reject) => {
@@ -32299,15 +32299,15 @@ var StorageBucketApi = class extends BaseApiClient {
     return `${this.url}/bucket/${encodeStoragePath(id)}/lifecycle`;
   }
   listBucketOptionsToQueryString(options) {
-    const params = {};
+    const params2 = {};
     if (options) {
-      if ("limit" in options) params.limit = String(options.limit);
-      if ("offset" in options) params.offset = String(options.offset);
-      if (options.search) params.search = options.search;
-      if (options.sortColumn) params.sortColumn = options.sortColumn;
-      if (options.sortOrder) params.sortOrder = options.sortOrder;
+      if ("limit" in options) params2.limit = String(options.limit);
+      if ("offset" in options) params2.offset = String(options.offset);
+      if (options.search) params2.search = options.search;
+      if (options.sortColumn) params2.sortColumn = options.sortColumn;
+      if (options.sortOrder) params2.sortOrder = options.sortOrder;
     }
-    return Object.keys(params).length > 0 ? "?" + new URLSearchParams(params).toString() : "";
+    return Object.keys(params2).length > 0 ? "?" + new URLSearchParams(params2).toString() : "";
   }
 };
 var StorageAnalyticsClient = class extends BaseApiClient {
@@ -35418,9 +35418,9 @@ function encode(str) {
     return charMap[match];
   });
 }
-function AxiosURLSearchParams(params, options) {
+function AxiosURLSearchParams(params2, options) {
   this._pairs = [];
-  params && toFormData_default(params, this, options);
+  params2 && toFormData_default(params2, this, options);
 }
 var prototype = AxiosURLSearchParams.prototype;
 prototype.append = function append(name, value) {
@@ -35438,8 +35438,8 @@ var AxiosURLSearchParams_default = AxiosURLSearchParams;
 function encode2(val) {
   return encodeURIComponent(val).replace(/%3A/gi, ":").replace(/%24/g, "$").replace(/%2C/gi, ",").replace(/%20/g, "+");
 }
-function buildURL(url2, params, options) {
-  if (!params) {
+function buildURL(url2, params2, options) {
+  if (!params2) {
     return url2;
   }
   url2 = url2 || "";
@@ -35450,9 +35450,9 @@ function buildURL(url2, params, options) {
   const serializeFn = utils_default.getSafeProp(_options, "serialize");
   let serializedParams;
   if (serializeFn) {
-    serializedParams = serializeFn(params, _options);
+    serializedParams = serializeFn(params2, _options);
   } else {
-    serializedParams = utils_default.isURLSearchParams(params) ? params.toString() : new AxiosURLSearchParams_default(params, _options).toString(_encode);
+    serializedParams = utils_default.isURLSearchParams(params2) ? params2.toString() : new AxiosURLSearchParams_default(params2, _options).toString(_encode);
   }
   if (serializedParams) {
     const hashmarkIndex = url2.indexOf("#");
@@ -36120,14 +36120,14 @@ function fromDataURI(uri, asBlob, options) {
       throw new AxiosError_default("Invalid URL", AxiosError_default.ERR_INVALID_URL);
     }
     const type = match[1];
-    const params = match[2];
+    const params2 = match[2];
     const encoding = match[3] ? "base64" : "utf8";
     const body = match[4];
     let mime = "";
     if (type) {
-      mime = params ? type + params : type;
-    } else if (params) {
-      mime = "text/plain" + params;
+      mime = params2 ? type + params2 : type;
+    } else if (params2) {
+      mime = "text/plain" + params2;
     }
     const buffer = encoding === "base64" ? Buffer.from(body, "base64") : Buffer.from(decodeURIComponent(body), encoding);
     if (asBlob) {
@@ -42238,52 +42238,52 @@ async function handler(req, res) {
     }
     return;
   }
-  async function executePayment(params) {
+  async function executePayment(params2) {
     const sdk = circle();
-    const balRes = await sdk.getWalletTokenBalance({ id: params.senderWalletId });
+    const balRes = await sdk.getWalletTokenBalance({ id: params2.senderWalletId });
     const usdcToken = (balRes.data?.tokenBalances ?? []).find((b) => b.token?.symbol === "USDC" || b.token?.name?.includes("USD Coin"));
     if (!usdcToken?.token?.id) throw new Error("USDC not found in sender wallet");
     const idempotencyKey = randomUUID();
     const txRes = await sdk.createTransaction({
-      walletId: params.senderWalletId,
+      walletId: params2.senderWalletId,
       tokenId: usdcToken.token.id,
-      destinationAddress: params.destinationAddress,
-      amounts: [params.amount],
+      destinationAddress: params2.destinationAddress,
+      amounts: [params2.amount],
       fee: { type: "level", config: { feeLevel: "MEDIUM" } },
       idempotencyKey
     });
     const circleTxId = txRes.data?.id;
     if (!circleTxId) throw new Error("No transaction ID from Circle");
-    const { data: tx, error: insertErr } = await params.supabase.from("transactions").insert({
+    const { data: tx, error: insertErr } = await params2.supabase.from("transactions").insert({
       circle_transaction_id: circleTxId,
-      sender_id: params.senderUserId,
-      recipient_id: params.recipientUserId,
-      amount: params.amountNum,
+      sender_id: params2.senderUserId,
+      recipient_id: params2.recipientUserId,
+      amount: params2.amountNum,
       asset: "USDC",
       blockchain: BLOCKCHAIN,
       state: "INITIATED",
-      conversation_id: params.conversationId,
+      conversation_id: params2.conversationId,
       idempotency_key: idempotencyKey
     }).select("id").single();
     if (insertErr || !tx?.id) throw new Error(`DB insert failed: ${insertErr?.message ?? "no row returned"}`);
     const txDbId = tx.id;
     const { state: finalState, txHash } = await pollCircleUntilTerminal(circleTxId, 8e3);
-    await params.supabase.from("transactions").update({
+    await params2.supabase.from("transactions").update({
       state: finalState,
       tx_hash: txHash,
       updated_at: (/* @__PURE__ */ new Date()).toISOString()
     }).eq("id", txDbId);
-    await params.supabase.from("messages").insert({
-      conversation_id: params.conversationId,
-      sender_id: params.senderUserId,
+    await params2.supabase.from("messages").insert({
+      conversation_id: params2.conversationId,
+      sender_id: params2.senderUserId,
       type: "payment",
-      content: params.note,
+      content: params2.note,
       metadata: {
         transactionId: txDbId,
         circleTransactionId: circleTxId,
-        amount: params.amount,
+        amount: params2.amount,
         asset: "USDC",
-        recipientHandle: params.recipientHandle,
+        recipientHandle: params2.recipientHandle,
         state: finalState
       }
     });
@@ -42406,6 +42406,73 @@ async function handler(req, res) {
       return;
     }
     const t = message.toLowerCase().trim();
+    const payIntent = t.match(/\b(?:send|transfer|pay)\s+\$?([\d.]+)\s*(?:usdc)?\s+(?:to\s+)?(@?[\w.]+(?:\.one)?|0x[0-9a-fA-F]{40})/i);
+    if (payIntent) {
+      const amount = payIntent[1];
+      const rawRecipient = payIntent[2].replace(/^@/, "");
+      const amountNum = parseFloat(amount);
+      if (isNaN(amountNum) || amountNum <= 0) {
+        res.json({ reply: `I couldn't parse the amount "${amount}". Try: "send 5 USDC to alice.one"`, usedLlm: false });
+        return;
+      }
+      const isAddress = /^0x[0-9a-fA-F]{40}$/.test(rawRecipient);
+      let destAddress = null;
+      let resolvedHandle = rawRecipient;
+      if (isAddress) {
+        destAddress = rawRecipient;
+      } else {
+        const handle = rawRecipient.replace(/\.one$/, "");
+        const { data: identity } = await db().from("one_identities").select("user_id, handle").eq("handle", handle).maybeSingle();
+        if (!identity) {
+          res.json({ reply: `I couldn't find anyone with the handle "${rawRecipient}.one". Double-check the handle and try again.`, usedLlm: false });
+          return;
+        }
+        const { data: wallet } = await db().from("wallets").select("address").eq("user_id", identity.user_id).maybeSingle();
+        if (!wallet?.address) {
+          res.json({ reply: `Found ${rawRecipient}.one but they haven't set up a wallet yet.`, usedLlm: false });
+          return;
+        }
+        destAddress = wallet.address;
+        resolvedHandle = identity.handle;
+      }
+      try {
+        const senderWallet = await db().from("wallets").select("circle_wallet_id").eq("user_id", user.userId).maybeSingle();
+        if (!senderWallet.data?.circle_wallet_id) {
+          res.json({ reply: "You don't have a wallet set up yet. Go to the You tab and set up your wallet first.", usedLlm: false });
+          return;
+        }
+        const idempotencyKey = `allie-${user.userId}-${Date.now()}`;
+        const txRes = await circle().createTransaction({
+          walletId: senderWallet.data.circle_wallet_id,
+          tokenId: process.env.USDC_TOKEN_ID ?? "36b6931a-873a-56a8-8a27-b706b17104ee",
+          destinationAddress: destAddress,
+          amounts: [amount],
+          fee: { type: "level", config: { feeLevel: "MEDIUM" } },
+          idempotencyKey
+        });
+        const circleTxId = txRes.data?.transaction?.id ?? "";
+        const { state: finalState } = await pollCircleUntilTerminal(circleTxId, 8e3);
+        await db().from("transactions").insert({
+          sender_id: user.userId,
+          amount,
+          currency: "USDC",
+          status: finalState,
+          circle_transaction_id: circleTxId,
+          idempotency_key: idempotencyKey
+        });
+        const succeeded = ["CONFIRMED", "SENT", "COMPLETE"].includes(finalState);
+        res.json({
+          reply: succeeded ? `Done! I sent $${amount} USDC to ${resolvedHandle}${resolvedHandle.includes(".one") ? "" : ".one"}. The transaction is confirmed on Arc Network.` : `I submitted the payment of $${amount} USDC to ${resolvedHandle} but it's still processing. Check the Activity tab for the final status.`,
+          usedLlm: false,
+          paymentExecuted: true,
+          paymentState: finalState
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        res.json({ reply: `I tried to send the payment but hit an error: ${msg}. Try using the $ button directly.`, usedLlm: false });
+      }
+      return;
+    }
     const LOCAL_PATTERNS = [
       [/^(hi|hey|hello|sup|yo|what'?s up|howdy)[\s!?.]*$/i, "Hey! I'm ALLIE \u2014 your financial assistant in ONE Chat. Ask me to send USDC, check your balance, or explain a transaction."],
       [/^(thanks?|thank you|thx|ty|cheers)[\s!.]*$/i, "You're welcome! Let me know if you need anything else."],
@@ -42413,8 +42480,7 @@ async function handler(req, res) {
       [/^(ok|okay|got it|sure|nice|cool|great|awesome)[\s!.]*$/i, "Got it! Anything else I can help with?"],
       [/\bwho are you\b|\bwhat are you\b/i, "I'm ALLIE \u2014 the AI financial assistant built into ONE Chat. I can help you send USDC, check balances, split bills, and more."],
       [/\bwhat can you do\b|\bhelp\b/i, "I can help you: send USDC to any .one handle or wallet address, check your balance, explain transactions, and split bills. Just ask!"],
-      [/\bbalance\b/i, "You can see your live USDC balance in the You tab. Want me to help you send or request funds?"],
-      [/\b(send|transfer)\b.*\$?[\d.]+/i, "To send USDC, tap the $ button in any conversation and enter the amount. Want me to walk you through it?"]
+      [/\bbalance\b/i, "You can see your live USDC balance in the You tab. Want me to help you send or request funds?"]
     ];
     for (const [pattern, reply] of LOCAL_PATTERNS) {
       if (pattern.test(t)) {
@@ -42461,6 +42527,48 @@ Help users: send USDC by .one handle or wallet address, understand transactions,
       res.json({ reply, usedLlm: true });
     } catch {
       res.json({ reply: "I'm having a moment \u2014 please try again shortly.", usedLlm: false });
+    }
+    return;
+  }
+  if (path === "/subscription/subscribe" && req.method === "POST") {
+    const user = await getUser(req, res);
+    if (!user) return;
+    const { data: profile } = await params.supabase.from("profiles").select("is_pro").eq("id", user.userId).maybeSingle();
+    if (profile?.is_pro) {
+      res.json({ success: true, alreadyPro: true, message: "You're already a ONE Pro member!" });
+      return;
+    }
+    const { data: wallet } = await params.supabase.from("wallets").select("circle_wallet_id, address").eq("user_id", user.userId).maybeSingle();
+    if (!wallet?.circle_wallet_id) {
+      res.status(400).json({ error: "Wallet not set up. Go to the You tab first." });
+      return;
+    }
+    const treasuryAddress = process.env.VITE_TREASURY_ADDRESS;
+    if (!treasuryAddress) {
+      res.status(500).json({ error: "Subscription not configured" });
+      return;
+    }
+    try {
+      const idempotencyKey = `pro-sub-${user.userId}-${Date.now()}`;
+      const txRes = await circle().createTransaction({
+        walletId: wallet.circle_wallet_id,
+        tokenId: process.env.USDC_TOKEN_ID ?? "36b6931a-873a-56a8-8a27-b706b17104ee",
+        destinationAddress: treasuryAddress,
+        amounts: ["5"],
+        fee: { type: "level", config: { feeLevel: "MEDIUM" } },
+        idempotencyKey
+      });
+      const circleTxId = txRes.data?.transaction?.id ?? "";
+      const { state: finalState } = await pollCircleUntilTerminal(circleTxId, 8e3);
+      if (!["CONFIRMED", "SENT", "COMPLETE"].includes(finalState)) {
+        res.status(402).json({ error: `Payment ${finalState}. Please check your USDC balance and try again.` });
+        return;
+      }
+      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1e3).toISOString();
+      await params.supabase.from("profiles").update({ is_pro: true, pro_expires_at: expiresAt }).eq("id", user.userId);
+      res.json({ success: true, message: "Welcome to ONE Pro! You now have full ALLIE AI access.", expiresAt });
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : "Subscription failed" });
     }
     return;
   }

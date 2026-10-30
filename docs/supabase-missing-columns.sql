@@ -8,6 +8,10 @@ alter table public.messages
 alter table public.conversations
   add column if not exists deleted_at timestamptz default null;
 
+-- Pro subscription columns
+alter table public.profiles
+  add column if not exists pro_expires_at timestamptz default null;
+
 -- Optional: index for filtering soft-deleted rows
 create index if not exists messages_deleted_at_idx on public.messages(deleted_at) where deleted_at is null;
 create index if not exists conversations_deleted_at_idx on public.conversations(deleted_at) where deleted_at is null;

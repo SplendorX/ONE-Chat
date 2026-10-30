@@ -106,7 +106,11 @@ export async function sendUsdcToAddress(params: {
 }
 
 export async function chatAllie(message: string, history: { role: 'user' | 'assistant'; content: string }[], isPro = false) {
-  return post<{ reply: string; usedLlm?: boolean; requiresPro?: boolean }>('/chat/allie', { message, history, isPro });
+  return post<{ reply: string; usedLlm?: boolean; requiresPro?: boolean; paymentExecuted?: boolean }>('/chat/allie', { message, history, isPro });
+}
+
+export async function subscribeToPro() {
+  return post<{ success: boolean; alreadyPro?: boolean; message: string; expiresAt?: string }>('/subscription/subscribe', {});
 }
 
 export async function getPaymentStatus(txId: string) {

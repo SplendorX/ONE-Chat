@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase';
 import { formatDate, formatTimestamp } from '../lib/utils';
 import { chatAllie } from '../lib/api';
 import { PaymentSheet } from './PaymentSheet';
+import { ProUpgradeModal } from './ProUpgradeModal';
 
 interface ConversationViewProps {
   conversation: Conversation;
@@ -49,6 +50,7 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
   const [loading, setLoading] = useState(!isAllie);
   const [sending, setSending] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
+  const [showProUpgrade, setShowProUpgrade] = useState(false);
   const [typingTimeout, setTypingTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [otherTyping, setOtherTyping] = useState(false);
   const [allieHistory, setAllieHistory] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
@@ -314,7 +316,12 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
         <div className="flex-1 min-w-0">
           <div className="font-semibold text-sm truncate" style={{ color: 'var(--ink)' }}>{conversation.name}</div>
           {isAllie
-            ? <div className="text-xs" style={{ color: 'var(--muted)' }}>AI assistant · Free commands available</div>
+            ? <div className="text-xs flex items-center gap-2" style={{ color: 'var(--muted)' }}>
+                {user.isPro
+                  ? <><span style={{ color: '#C4A265', fontWeight: 600 }}>PRO</span> · Full AI access</>
+                  : <>Free commands · <button onClick={() => setShowProUpgrade(true)} className="underline bg-transparent border-0 p-0 cursor-pointer text-xs" style={{ color: '#C4A265' }}>Upgrade $5/mo</button></>
+                }
+              </div>
             : <div className="text-xs" style={{ color: 'var(--success)' }}>Online</div>
           }
         </div>
@@ -357,6 +364,15 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ duration: 0.18, ease: 'easeOut' }}>
                 <MessageBubble msg={msg} isAllie={isAllie} />
+                {Boolean((msg.metadata as Record<string, unknown> | null | undefined)?.requiresPro) && (
+                  <div className="flex justify-start pl-10 mt-1 mb-2">
+                    <button onClick={() => setShowProUpgrade(true)}
+                      className="text-xs px-3 py-1.5 rounded-full font-semibold transition-all"
+                      style={{ background: '#C4A265', color: '#1a1612', border: 'none', cursor: 'pointer' }}>
+                      ✦ Upgrade to ONE Pro — $5/mo
+                    </button>
+                  </div>
+                )}
               </motion.div>
             ))}
           </div>
@@ -433,6 +449,17 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
           onPaymentSent={(msg) => {
             setMessages((prev) => [...prev, msg]);
             setShowPayment(false);
+          }}
+        />
+      )}
+
+      {/* Pro upgrade modal */}
+      {showProUpgrade && (
+        <ProUpgradeModal
+          onClose={() => setShowProUpgrade(false)}
+          onUpgraded={() => {
+            // Refresh will pick up is_pro from DB on next load
+            window.location.reload();
           }}
         />
       )}

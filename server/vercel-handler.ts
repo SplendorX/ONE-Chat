@@ -310,6 +310,77 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const t = message.toLowerCase().trim();
 
     // --- Local handler: simple keywords never hit the LLM ---
+    // --- Payment intent: parse "send X usdc to handle/address" ---
+    // Must run BEFORE local patterns so payment commands aren't swallowed
+    const payIntent = t.match(/\b(?:send|transfer|pay)\s+\$?([\d.]+)\s*(?:usdc)?\s+(?:to\s+)?(@?[\w.]+(?:\.one)?|0x[0-9a-fA-F]{40})/i);
+    if (payIntent) {
+      const amount = payIntent[1];
+      const rawRecipient = payIntent[2].replace(/^@/, '');
+      // Validate amount
+      const amountNum = parseFloat(amount);
+      if (isNaN(amountNum) || amountNum <= 0) {
+        res.json({ reply: `I couldn't parse the amount "${amount}". Try: "send 5 USDC to alice.one"`, usedLlm: false }); return;
+      }
+      // Resolve recipient — could be a .one handle or a wallet address
+      const isAddress = /^0x[0-9a-fA-F]{40}$/.test(rawRecipient);
+      let destAddress: string | null = null;
+      let resolvedHandle = rawRecipient;
+      if (isAddress) {
+        destAddress = rawRecipient;
+      } else {
+        const handle = rawRecipient.replace(/\.one$/, '');
+        const { data: identity } = await db().from('one_identities').select('user_id, handle').eq('handle', handle).maybeSingle();
+        if (!identity) {
+          res.json({ reply: `I couldn't find anyone with the handle "${rawRecipient}.one". Double-check the handle and try again.`, usedLlm: false }); return;
+        }
+        const { data: wallet } = await db().from('wallets').select('address').eq('user_id', identity.user_id).maybeSingle();
+        if (!wallet?.address) {
+          res.json({ reply: `Found ${rawRecipient}.one but they haven't set up a wallet yet.`, usedLlm: false }); return;
+        }
+        destAddress = wallet.address;
+        resolvedHandle = identity.handle as string;
+      }
+      // Execute the payment via Circle
+      try {
+        const senderWallet = await db().from('wallets').select('circle_wallet_id').eq('user_id', user.userId).maybeSingle();
+        if (!senderWallet.data?.circle_wallet_id) {
+          res.json({ reply: "You don't have a wallet set up yet. Go to the You tab and set up your wallet first.", usedLlm: false }); return;
+        }
+        const idempotencyKey = `allie-${user.userId}-${Date.now()}`;
+        const txRes = await circle().createTransaction({
+          walletId: senderWallet.data.circle_wallet_id as string,
+          tokenId: process.env.USDC_TOKEN_ID ?? '36b6931a-873a-56a8-8a27-b706b17104ee',
+          destinationAddress: destAddress,
+          amounts: [amount],
+          fee: { type: 'level', config: { feeLevel: 'MEDIUM' } },
+          idempotencyKey,
+        });
+        const circleTxId = (txRes.data as { transaction?: { id?: string } })?.transaction?.id ?? '';
+        const { state: finalState } = await pollCircleUntilTerminal(circleTxId, 8000);
+        await db().from('transactions').insert({
+          sender_id: user.userId,
+          amount,
+          currency: 'USDC',
+          status: finalState,
+          circle_transaction_id: circleTxId,
+          idempotency_key: idempotencyKey,
+        });
+        const succeeded = ['CONFIRMED', 'SENT', 'COMPLETE'].includes(finalState);
+        res.json({
+          reply: succeeded
+            ? `Done! I sent $${amount} USDC to ${resolvedHandle}${resolvedHandle.includes('.one') ? '' : '.one'}. The transaction is confirmed on Arc Network.`
+            : `I submitted the payment of $${amount} USDC to ${resolvedHandle} but it's still processing. Check the Activity tab for the final status.`,
+          usedLlm: false,
+          paymentExecuted: true,
+          paymentState: finalState,
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        res.json({ reply: `I tried to send the payment but hit an error: ${msg}. Try using the $ button directly.`, usedLlm: false });
+      }
+      return;
+    }
+
     const LOCAL_PATTERNS: [RegExp, string][] = [
       [/^(hi|hey|hello|sup|yo|what'?s up|howdy)[\s!?.]*$/i, "Hey! I'm ALLIE — your financial assistant in ONE Chat. Ask me to send USDC, check your balance, or explain a transaction."],
       [/^(thanks?|thank you|thx|ty|cheers)[\s!.]*$/i, "You're welcome! Let me know if you need anything else."],
@@ -318,7 +389,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       [/\bwho are you\b|\bwhat are you\b/i, "I'm ALLIE — the AI financial assistant built into ONE Chat. I can help you send USDC, check balances, split bills, and more."],
       [/\bwhat can you do\b|\bhelp\b/i, "I can help you: send USDC to any .one handle or wallet address, check your balance, explain transactions, and split bills. Just ask!"],
       [/\bbalance\b/i, "You can see your live USDC balance in the You tab. Want me to help you send or request funds?"],
-      [/\b(send|transfer)\b.*\$?[\d.]+/i, "To send USDC, tap the $ button in any conversation and enter the amount. Want me to walk you through it?"],
     ];
     for (const [pattern, reply] of LOCAL_PATTERNS) {
       if (pattern.test(t)) { res.json({ reply, usedLlm: false }); return; }
@@ -367,6 +437,43 @@ Help users: send USDC by .one handle or wallet address, understand transactions,
       res.json({ reply, usedLlm: true });
     } catch {
       res.json({ reply: "I'm having a moment — please try again shortly.", usedLlm: false });
+    }
+    return;
+  }
+
+  // POST /subscription/subscribe  — charge 5 USDC and mark user as Pro
+  if (path === '/subscription/subscribe' && req.method === 'POST') {
+    const user = await getUser(req, res); if (!user) return;
+    // Check already pro
+    const { data: profile } = await params.supabase.from('profiles').select('is_pro').eq('id', user.userId).maybeSingle();
+    if (profile?.is_pro) { res.json({ success: true, alreadyPro: true, message: "You're already a ONE Pro member!" }); return; }
+    // Get sender wallet
+    const { data: wallet } = await params.supabase.from('wallets').select('circle_wallet_id, address').eq('user_id', user.userId).maybeSingle();
+    if (!wallet?.circle_wallet_id) { res.status(400).json({ error: 'Wallet not set up. Go to the You tab first.' }); return; }
+    // Charge 5 USDC — send to app treasury address (owner's wallet)
+    const treasuryAddress = process.env.VITE_TREASURY_ADDRESS;
+    if (!treasuryAddress) { res.status(500).json({ error: 'Subscription not configured' }); return; }
+    try {
+      const idempotencyKey = `pro-sub-${user.userId}-${Date.now()}`;
+      const txRes = await circle().createTransaction({
+        walletId: wallet.circle_wallet_id as string,
+        tokenId: process.env.USDC_TOKEN_ID ?? '36b6931a-873a-56a8-8a27-b706b17104ee',
+        destinationAddress: treasuryAddress,
+        amounts: ['5'],
+        fee: { type: 'level', config: { feeLevel: 'MEDIUM' } },
+        idempotencyKey,
+      });
+      const circleTxId = (txRes.data as { transaction?: { id?: string } })?.transaction?.id ?? '';
+      const { state: finalState } = await pollCircleUntilTerminal(circleTxId, 8000);
+      if (!['CONFIRMED', 'SENT', 'COMPLETE'].includes(finalState)) {
+        res.status(402).json({ error: `Payment ${finalState}. Please check your USDC balance and try again.` }); return;
+      }
+      // Mark pro + record expiry (30 days)
+      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      await params.supabase.from('profiles').update({ is_pro: true, pro_expires_at: expiresAt }).eq('id', user.userId);
+      res.json({ success: true, message: 'Welcome to ONE Pro! You now have full ALLIE AI access.', expiresAt });
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : 'Subscription failed' });
     }
     return;
   }
