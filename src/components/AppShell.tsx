@@ -294,7 +294,7 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
               {tab === 'contacts' && <ContactsView session={session} onStartChat={(conv) => { setTab('chats'); setActiveConv(conv); }} />}
               {tab === 'activity' && <ActivityView user={profile} session={session} />}
               {tab === 'channels' && <ChannelsView user={profile} session={session} />}
-              {tab === 'you' && <ProfileView user={profile} session={session} theme={theme} onThemeToggle={onThemeToggle} onSignOut={onSignOut} onAvatarUpdate={(url) => setProfile((p) => p ? { ...p, avatarUrl: url } : p)} />}
+              {tab === 'you' && <ProfileView user={profile} session={session} theme={theme} onThemeToggle={onThemeToggle} onSignOut={onSignOut} onAvatarUpdate={(url) => setProfile((p) => p ? { ...p, avatarUrl: url } : p)} onProUpgrade={() => setProfile((p) => p ? { ...p, isPro: true } : p)} />}
             </motion.div>
           </AnimatePresence>
         </div>
@@ -337,7 +337,7 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
               {tab === 'contacts' && <ContactsView session={session} onStartChat={(conv) => { setTab('chats'); setActiveConv(conv); }} />}
               {tab === 'activity' && <ActivityView user={profile} session={session} />}
               {tab === 'channels' && <ChannelsView user={profile} session={session} />}
-              {tab === 'you' && <ProfileView user={profile} session={session} theme={theme} onThemeToggle={onThemeToggle} onSignOut={onSignOut} onAvatarUpdate={(url) => setProfile((p) => p ? { ...p, avatarUrl: url } : p)} />}
+              {tab === 'you' && <ProfileView user={profile} session={session} theme={theme} onThemeToggle={onThemeToggle} onSignOut={onSignOut} onAvatarUpdate={(url) => setProfile((p) => p ? { ...p, avatarUrl: url } : p)} onProUpgrade={() => setProfile((p) => p ? { ...p, isPro: true } : p)} />}
             </>
           )}
         </div>

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Session } from '@supabase/supabase-js';
-import { ArrowLeft, Phone, MoreHorizontal, Send, Paperclip, DollarSign, Check, CheckCheck, Loader2 } from 'lucide-react';
+import { ArrowLeft, Phone, MoreHorizontal, Send, Paperclip, DollarSign, Check, CheckCheck, Loader2, BellOff, Trash2, Share } from 'lucide-react';
 import { AllieIcon } from './AllieIcon';
 import type { Conversation, Message, User } from '../types';
 import { supabase } from '../lib/supabase';
@@ -54,6 +54,9 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
   const [typingTimeout, setTypingTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [otherTyping, setOtherTyping] = useState(false);
   const [allieHistory, setAllieHistory] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
+  const [showMenu, setShowMenu] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const attachRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Scroll to bottom on new messages
@@ -326,13 +329,61 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
           }
         </div>
 
-        <div className="flex items-center gap-1">
-          <button className="w-8 h-8 rounded-full flex items-center justify-center bg-transparent border-0 cursor-pointer" style={{ color: 'var(--muted)' }}>
-            <Phone size={16} />
-          </button>
-          <button className="w-8 h-8 rounded-full flex items-center justify-center bg-transparent border-0 cursor-pointer" style={{ color: 'var(--muted)' }}>
+        <div className="flex items-center gap-1 relative">
+          {!isAllie && (
+            <button
+              onClick={() => { window.location.href = `tel:`; }}
+              className="w-8 h-8 rounded-full flex items-center justify-center bg-transparent border-0 cursor-pointer transition-all"
+              style={{ color: 'var(--muted)' }} title="Call">
+              <Phone size={16} />
+            </button>
+          )}
+          <button
+            onClick={() => setShowMenu((v) => !v)}
+            className="w-8 h-8 rounded-full flex items-center justify-center bg-transparent border-0 cursor-pointer transition-all"
+            style={{ color: 'var(--muted)' }} title="More options">
             <MoreHorizontal size={16} />
           </button>
+          <AnimatePresence>
+            {showMenu && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: -4 }}
+                transition={{ duration: 0.12 }}
+                className="absolute right-0 top-10 z-50 rounded-2xl overflow-hidden border shadow-lg"
+                style={{ background: 'var(--surface-card)', borderColor: 'var(--border)', minWidth: 180 }}
+                onMouseLeave={() => setShowMenu(false)}>
+                <button onClick={() => { setMuted((v) => !v); setShowMenu(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm transition-all hover:bg-[var(--surface-muted)] text-left"
+                  style={{ color: 'var(--ink)', background: 'transparent', border: 'none', cursor: 'pointer' }}>
+                  <BellOff size={14} style={{ color: 'var(--muted)' }} />
+                  {muted ? 'Unmute notifications' : 'Mute notifications'}
+                </button>
+                <button onClick={() => {
+                  const url = `${window.location.origin}`;
+                  navigator.clipboard.writeText(url).catch(() => {});
+                  setShowMenu(false);
+                }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm transition-all hover:bg-[var(--surface-muted)] text-left border-t"
+                  style={{ color: 'var(--ink)', background: 'transparent', border: 'none', borderTop: '1px solid var(--border)', cursor: 'pointer' }}>
+                  <Share size={14} style={{ color: 'var(--muted)' }} />
+                  Copy link
+                </button>
+                <button onClick={() => {
+                  if (window.confirm('Clear this conversation? Messages will remain in the database.')) {
+                    setMessages([]);
+                  }
+                  setShowMenu(false);
+                }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm transition-all text-left border-t"
+                  style={{ color: 'var(--danger)', background: 'transparent', border: 'none', borderTop: '1px solid var(--border)', cursor: 'pointer' }}>
+                  <Trash2 size={14} />
+                  Clear chat
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
@@ -412,10 +463,28 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
           </button>
 
           <button
-            className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 bg-transparent border-0 cursor-pointer"
-            style={{ background: 'var(--surface-muted)', color: 'var(--muted)', border: '1px solid var(--border)' }}>
+            onClick={() => attachRef.current?.click()}
+            className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer transition-all"
+            style={{ background: 'var(--surface-muted)', color: 'var(--muted)', border: '1px solid var(--border)' }}
+            title="Attach image">
             <Paperclip size={15} />
           </button>
+          <input ref={attachRef} type="file" accept="image/*" className="hidden"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file || isAllie) return;
+              const ext = file.name.split('.').pop() ?? 'jpg';
+              const path = `${user.id}/msg-${Date.now()}.${ext}`;
+              const { error: upErr } = await supabase.storage.from('avatars')
+                .upload(path, file, { upsert: true, contentType: file.type });
+              if (upErr) return;
+              const { data: urlD } = supabase.storage.from('avatars').getPublicUrl(path);
+              await supabase.from('messages').insert({
+                conversation_id: conversation.id, sender_id: user.id,
+                type: 'image', content: urlD.publicUrl,
+              });
+              if (attachRef.current) attachRef.current.value = '';
+            }} />
 
           <div className="flex-1 rounded-2xl overflow-hidden flex items-end"
             style={{ background: 'var(--surface-muted)', border: '1px solid var(--border)' }}>
@@ -512,14 +581,21 @@ function MessageBubble({ msg, isAllie }: { msg: Message; isAllie: boolean }) {
         <AllieIcon size={26} state="idle" className="mb-1 flex-shrink-0" />
       )}
       <div className="max-w-xs lg:max-w-sm">
-        <div className={`px-4 py-2.5 text-sm leading-relaxed ${msg.isOwn ? 'rounded-2xl rounded-br-sm' : 'rounded-2xl rounded-bl-sm'}`}
-          style={{
-            background: msg.isOwn ? 'var(--ink)' : 'var(--surface-bubble-in)',
-            color: msg.isOwn ? 'var(--bg)' : 'var(--ink)',
-            border: msg.isOwn ? 'none' : '1px solid var(--border)',
-          }}>
-          {msg.content}
-        </div>
+        {msg.type === 'image' && msg.content ? (
+          <img src={msg.content} alt="attachment"
+            className={`max-w-xs rounded-2xl ${msg.isOwn ? 'rounded-br-sm' : 'rounded-bl-sm'} object-cover cursor-pointer`}
+            style={{ maxHeight: 240 }}
+            onClick={() => window.open(msg.content ?? undefined, '_blank')} />
+        ) : (
+          <div className={`px-4 py-2.5 text-sm leading-relaxed ${msg.isOwn ? 'rounded-2xl rounded-br-sm' : 'rounded-2xl rounded-bl-sm'}`}
+            style={{
+              background: msg.isOwn ? 'var(--ink)' : 'var(--surface-bubble-in)',
+              color: msg.isOwn ? 'var(--bg)' : 'var(--ink)',
+              border: msg.isOwn ? 'none' : '1px solid var(--border)',
+            }}>
+            {msg.content}
+          </div>
+        )}
         <div className={`flex items-center gap-1 mt-0.5 px-1 ${msg.isOwn ? 'justify-end' : 'justify-start'}`}>
           <span className="text-xs" style={{ color: 'var(--subtle)' }}>{formatTimestamp(msg.createdAt)}</span>
           {msg.isOwn && (
