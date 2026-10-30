@@ -42455,8 +42455,8 @@ async function handler(req, res) {
         await db().from("transactions").insert({
           sender_id: user.userId,
           amount,
-          currency: "USDC",
-          status: finalState,
+          asset: "USDC",
+          state: finalState,
           circle_transaction_id: circleTxId,
           idempotency_key: idempotencyKey
         });

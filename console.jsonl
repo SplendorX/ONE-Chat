@@ -806,3 +806,17 @@
 {"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793370517081}
 {"level":"debug","message":"[vite] hot updated: /src/components/ConversationView.tsx","timestamp":1793370517082}
 {"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793370517082}
+{"level":"debug","message":"[vite] connected.","timestamp":1793370556457}
+{"level":"error","message":"Warning: You are calling ReactDOMClient.createRoot() on a container that has already been passed to createRoot() before. Instead, call root.render() on the existing root instead if you want to update it.","timestamp":1793370598379}
+{"level":"error","message":"[vite] module code@https://i1ov1mvb0a1brmw073wql.preview.studio.arc.io/src/main.tsx:28:43","timestamp":1793370598381,"stack":"module code@https://i1ov1mvb0a1brmw073wql.preview.studio.arc.io/src/main.tsx:28:43"}
+{"level":"error","message":"[vite] Failed to reload /src/main.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above)","timestamp":1793370598381}
+{"level":"debug","message":"[vite] hot updated: /src/main.tsx","timestamp":1793370598381}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793370598381}
+{"level":"error","message":"Warning: You are calling ReactDOMClient.createRoot() on a container that has already been passed to createRoot() before. Instead, call root.render() on the existing root instead if you want to update it.","timestamp":1793370598382}
+{"level":"error","message":"[vite] module code@https://i1ov1mvb0a1brmw073wql.preview.studio.arc.io/src/main.tsx:28:43","timestamp":1793370598382,"stack":"module code@https://i1ov1mvb0a1brmw073wql.preview.studio.arc.io/src/main.tsx:28:43"}
+{"level":"error","message":"[vite] Failed to reload /src/main.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above)","timestamp":1793370598382}
+{"level":"debug","message":"[vite] hot updated: /src/main.tsx","timestamp":1793370598383}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793370598383}
+{"level":"error","message":"ReferenceError: Can't find variable: StudioWatermark","timestamp":1793370600634,"source":"https://i1ov1mvb0a1brmw073wql.preview.studio.arc.io/src/main.tsx?t=1793370597194:28:43","stack":"module code@https://i1ov1mvb0a1brmw073wql.preview.studio.arc.io/src/main.tsx:28:43"}
+{"level":"debug","message":"[vite] connected.","timestamp":1793370603910}
+{"level":"debug","message":"[vite] connected.","timestamp":1793370604955}
