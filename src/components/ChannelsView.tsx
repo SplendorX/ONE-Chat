@@ -66,17 +66,22 @@ export function ChannelsView({ user, session }: ChannelsViewProps) {
       p_user_id: userId, p_mode: mode,
     });
     if (error || !data) {
-      // Fallback: load channels directly if RPC not deployed yet
-      const { data: chData } = await supabase.from('channels').select('*').limit(20);
-      if (chData) {
-        const grouped: ChannelGroup[] = chData.map((c) => ({
-          id: c.id as string, handle: c.handle as string, name: c.name as string,
-          avatar: c.avatar_url as string | null, verified: c.is_verified as boolean,
-          category: c.category as string, isFollowing: false, followerCount: c.subscriber_count as number,
-          posts: [],
-        }));
-        setChannels(grouped);
-      }
+      // Fallback: load channels + follows directly
+      const [chRes, followRes] = await Promise.all([
+        supabase.from('channels').select('id, handle, name, avatar_url, is_verified, category, subscriber_count').order('subscriber_count', { ascending: false }).limit(50),
+        supabase.from('channel_follows').select('channel_id').eq('user_id', userId),
+      ]);
+      const followedIds = new Set((followRes.data ?? []).map((f) => f.channel_id as string));
+      const allChannels: ChannelGroup[] = (chRes.data ?? []).map((c) => ({
+        id: c.id as string, handle: c.handle as string, name: c.name as string,
+        avatar: c.avatar_url as string | null, verified: (c.is_verified as boolean) ?? false,
+        category: (c.category as string) ?? 'General', isFollowing: followedIds.has(c.id as string),
+        followerCount: (c.subscriber_count as number) ?? 0, posts: [],
+      }));
+      const filtered = mode === 'following'
+        ? allChannels.filter((c) => c.isFollowing)
+        : allChannels.filter((c) => !c.isFollowing);
+      setChannels(filtered);
       setLoading(false);
       return;
     }
@@ -100,6 +105,27 @@ export function ChannelsView({ user, session }: ChannelsViewProps) {
         userLiked: r.user_liked,
       });
     }
+    // Also fetch channels that have NO posts so they still appear
+    const seenIds = new Set(map.keys());
+    const [extraRes, followRes] = await Promise.all([
+      supabase.from('channels').select('id, handle, name, avatar_url, is_verified, category, subscriber_count').order('created_at', { ascending: false }).limit(50),
+      supabase.from('channel_follows').select('channel_id').eq('user_id', userId),
+    ]);
+    const followedIds = new Set((followRes.data ?? []).map((f) => f.channel_id as string));
+    for (const c of extraRes.data ?? []) {
+      if (!seenIds.has(c.id as string)) {
+        const isFollowing = followedIds.has(c.id as string);
+        // Only add to this mode's list if it belongs here
+        if ((mode === 'following' && isFollowing) || (mode === 'discover' && !isFollowing)) {
+          map.set(c.id as string, {
+            id: c.id as string, handle: c.handle as string, name: c.name as string,
+            avatar: c.avatar_url as string | null, verified: (c.is_verified as boolean) ?? false,
+            category: (c.category as string) ?? 'General', isFollowing,
+            followerCount: (c.subscriber_count as number) ?? 0, posts: [],
+          });
+        }
+      }
+    }
     let result = Array.from(map.values());
     if (category !== 'All') result = result.filter((c) => c.category.toLowerCase() === category.toLowerCase());
     setChannels(result);
@@ -116,7 +142,7 @@ export function ChannelsView({ user, session }: ChannelsViewProps) {
   }, [userId]);
 
   useEffect(() => {
-    if (activeTab !== 'create') void loadFeed(activeTab);
+    if (activeTab === 'following' || activeTab === 'discover') void loadFeed(activeTab);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, category]);
 
@@ -222,7 +248,7 @@ export function ChannelsView({ user, session }: ChannelsViewProps) {
             <motion.div key="create" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
               <CreateOrManageChannel
                 userId={userId} session={session} user={user}
-                myChannel={myChannel} onCreated={(ch) => setMyChannel(ch)} />
+                myChannel={myChannel} onCreated={(ch) => { setMyChannel(ch); setActiveTab('discover'); }} />
             </motion.div>
           ) : loading ? (
             <motion.div key="loading" className="flex items-center justify-center py-20"

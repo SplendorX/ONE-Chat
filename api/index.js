@@ -42406,10 +42406,16 @@ async function handler(req, res) {
       return;
     }
     const t = message.toLowerCase().trim();
-    const payIntent = t.match(/\b(?:send|transfer|pay)\s+\$?([\d.]+)\s*(?:usdc)?\s+(?:to\s+)?(@?[\w.]+(?:\.one)?|0x[0-9a-fA-F]{40})/i);
+    const clean = t.replace(/^@allie\s*/i, "").trim();
+    const payIntent = clean.match(/\b(?:send|transfer|pay)\s+\$?([\d.]+)\s*(?:usdc)?\s+(?:to\s+)?(@?[\w.]+(?:\.one)?|0x[0-9a-fA-F]{40})/i) || clean.match(/\b(?:send|transfer|pay)\s+(?:to\s+)?(@?[\w.]+(?:\.one)?|0x[0-9a-fA-F]{40})\s+\$?([\d.]+)\s*(?:usdc)?/i);
     if (payIntent) {
-      const amount = payIntent[1];
-      const rawRecipient = payIntent[2].replace(/^@/, "");
+      const isFirstPattern = /\b(?:send|transfer|pay)\s+\$?[\d.]/.test(clean);
+      const amount = isFirstPattern ? payIntent[1] : payIntent[2];
+      const rawRecipient = (isFirstPattern ? payIntent[2] : payIntent[1])?.replace(/^@/, "") ?? "";
+      if (/^(him|her|them|this|that|it)$/.test(rawRecipient)) {
+        res.json({ reply: `Who would you like to send $${amount} USDC to? Just say their .one handle, like "send ${amount} USDC to alice.one".`, usedLlm: false });
+        return;
+      }
       const amountNum = parseFloat(amount);
       if (isNaN(amountNum) || amountNum <= 0) {
         res.json({ reply: `I couldn't parse the amount "${amount}". Try: "send 5 USDC to alice.one"`, usedLlm: false });
@@ -42474,16 +42480,20 @@ async function handler(req, res) {
       return;
     }
     const LOCAL_PATTERNS = [
-      [/^(hi|hey|hello|sup|yo|what'?s up|howdy)[\s!?.]*$/i, "Hey! I'm ALLIE \u2014 your financial assistant in ONE Chat. Ask me to send USDC, check your balance, or explain a transaction."],
+      [/^(hi|hey|hello|sup|yo|what'?s up|howdy)[\s!?.]*$/i, "Hey! I'm ALLIE \u2014 your financial assistant in ONE Chat. I can send USDC, check your balance, split bills, and more. What do you need?"],
       [/^(thanks?|thank you|thx|ty|cheers)[\s!.]*$/i, "You're welcome! Let me know if you need anything else."],
       [/^(bye|goodbye|see ya|later)[\s!.]*$/i, "Bye! I'll be here whenever you need me."],
-      [/^(ok|okay|got it|sure|nice|cool|great|awesome)[\s!.]*$/i, "Got it! Anything else I can help with?"],
-      [/\bwho are you\b|\bwhat are you\b/i, "I'm ALLIE \u2014 the AI financial assistant built into ONE Chat. I can help you send USDC, check balances, split bills, and more."],
-      [/\bwhat can you do\b|\bhelp\b/i, "I can help you: send USDC to any .one handle or wallet address, check your balance, explain transactions, and split bills. Just ask!"],
-      [/\bbalance\b/i, "You can see your live USDC balance in the You tab. Want me to help you send or request funds?"]
+      [/^(ok|okay|got it|sure|nice|cool|great|awesome|perfect|sounds good)[\s!.]*$/i, "Got it! Anything else I can help with?"],
+      [/\bwho are you\b|\bwhat are you\b/i, "I'm ALLIE \u2014 the AI financial assistant built into ONE Chat. I can send USDC, check balances, split bills, and explain transactions."],
+      [/\bwhat can you do\b|\bhelp\b|\bcommands?\b/i, "I can: send USDC to any .one handle or wallet address, check your balance, split bills, request payments, and explain transactions. Just ask naturally!"],
+      [/\bbalance\b|\bhow much\b.*\bhave\b|\bwhat.*\bbalance\b/i, "You can see your live USDC balance in the You tab. Want me to help you send or request funds?"],
+      [/\bhow.*send\b|\bsend.*how\b|\bwhat.*send\b/i, "Just say 'send 5 USDC to alice.one' \u2014 I'll handle it. You can use a .one handle or a wallet address starting with 0x."],
+      [/\brequest\b.*\busdc\b|\bask.*\bpay\b/i, "Payment requests aren't automated yet, but you can tap the $ button in any conversation to send USDC directly."],
+      [/\bsplit\b.*\bbill\b|\bbill\b.*\bsplit\b|\bsplit\b.*\bcost\b/i, "For bill splits, tell me the total and the participants \u2014 I'll calculate each person's share and you can send it directly."],
+      [/\btransaction\b|\bhistory\b|\bactivity\b/i, "Check the Activity tab for your full transaction history, including explorer links for every confirmed payment."]
     ];
     for (const [pattern, reply] of LOCAL_PATTERNS) {
-      if (pattern.test(t)) {
+      if (pattern.test(clean)) {
         res.json({ reply, usedLlm: false });
         return;
       }
