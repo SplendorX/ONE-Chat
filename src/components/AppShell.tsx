@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ErrorBoundary } from './ErrorBoundary';
 import type { Session } from '@supabase/supabase-js';
-import { MessageCircle, Users, Activity, Radio, UserCircle2 } from 'lucide-react';
+import { MessageCircle, Users, Activity, Radio, PiggyBank, UserCircle2 } from 'lucide-react';
 import { AllieIcon } from './AllieIcon';
 import { OneChatWordmark, OneChatLogo } from './Brand';
 import type { AppTab, Theme, User } from '../types';
@@ -12,6 +12,7 @@ import { ContactsView } from './ContactsView';
 import { ActivityView } from './ActivityView';
 import { ChannelsView } from './ChannelsView';
 import { ProfileView } from './ProfileView';
+import { SavingsView } from './SavingsView';
 import { ConversationView } from './ConversationView';
 import type { Conversation } from '../types';
 
@@ -27,6 +28,7 @@ const TABS: { id: AppTab; label: string; Icon: React.ElementType }[] = [
   { id: 'contacts', label: 'Contacts', Icon: Users },
   { id: 'activity', label: 'Activity', Icon: Activity },
   { id: 'channels', label: 'Channels', Icon: Radio },
+  { id: 'savings', label: 'Savings', Icon: PiggyBank },
   { id: 'you', label: 'You', Icon: UserCircle2 },
 ];
 
@@ -294,6 +296,7 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
               {tab === 'contacts' && <ContactsView session={session} onStartChat={(conv) => { setTab('chats'); setActiveConv(conv); }} />}
               {tab === 'activity' && <ActivityView user={profile} session={session} />}
               {tab === 'channels' && <ChannelsView user={profile} session={session} />}
+              {tab === 'savings' && <SavingsView user={profile} session={session} />}
               {tab === 'you' && <ProfileView user={profile} session={session} theme={theme} onThemeToggle={onThemeToggle} onSignOut={onSignOut} onAvatarUpdate={(url) => setProfile((p) => p ? { ...p, avatarUrl: url } : p)} onProUpgrade={() => setProfile((p) => p ? { ...p, isPro: true } : p)} />}
             </motion.div>
           </AnimatePresence>
@@ -337,6 +340,7 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
               {tab === 'contacts' && <ContactsView session={session} onStartChat={(conv) => { setTab('chats'); setActiveConv(conv); }} />}
               {tab === 'activity' && <ActivityView user={profile} session={session} />}
               {tab === 'channels' && <ChannelsView user={profile} session={session} />}
+              {tab === 'savings' && <SavingsView user={profile} session={session} />}
               {tab === 'you' && <ProfileView user={profile} session={session} theme={theme} onThemeToggle={onThemeToggle} onSignOut={onSignOut} onAvatarUpdate={(url) => setProfile((p) => p ? { ...p, avatarUrl: url } : p)} onProUpgrade={() => setProfile((p) => p ? { ...p, isPro: true } : p)} />}
             </>
           )}

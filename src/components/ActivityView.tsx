@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { ArrowDownLeft, ArrowUpRight, Gift, Clock, Loader2, ExternalLink } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Gift, Clock, Loader2, ExternalLink, TrendingDown, TrendingUp } from 'lucide-react';
 import type { User } from '../types';
 import { supabase } from '../lib/supabase';
 import { getWalletBalance } from '../lib/api';
@@ -36,14 +36,17 @@ async function resolveCounterpartyName(userId: string): Promise<{ name: string; 
   return { name, handle };
 }
 
+type FilterTab = 'all' | 'sent' | 'received';
+
 export function ActivityView({ user, session }: ActivityViewProps) {
   const [txs, setTxs] = useState<TxRow[]>([]);
   const [balance, setBalance] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<FilterTab>('all');
 
   useEffect(() => {
     async function load() {
-      const userId = session.user.id;
+      const userId = session.user.id; // local alias for effect closure
       const [txRes, balRes] = await Promise.all([
         supabase
           .from('transactions')
@@ -75,6 +78,13 @@ export function ActivityView({ user, session }: ActivityViewProps) {
     try { return buildTxExplorerUrl(5042002, txHash); } catch { return null; }
   }
 
+  const userId = session.user.id;
+  const sentTxs = txs.filter((t) => t.sender_id === userId);
+  const receivedTxs = txs.filter((t) => t.recipient_id === userId);
+  const totalSent = sentTxs.reduce((s, t) => s + parseFloat(t.amount || '0'), 0);
+  const totalReceived = receivedTxs.reduce((s, t) => s + parseFloat(t.amount || '0'), 0);
+  const filtered = filter === 'sent' ? sentTxs : filter === 'received' ? receivedTxs : txs;
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="px-5 py-4 border-b flex-shrink-0" style={{ borderColor: 'var(--border)' }}>
@@ -82,15 +92,35 @@ export function ActivityView({ user, session }: ActivityViewProps) {
         <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>Payments, requests, and transfers</p>
       </div>
 
-      {/* Balance card */}
-      <div className="mx-4 mt-4 mb-2 p-4 rounded-2xl border" style={{ background: 'var(--surface-muted)', borderColor: 'var(--border)' }}>
-        <p className="text-xs font-medium mb-1 uppercase tracking-wide" style={{ color: 'var(--muted)' }}>USDC Balance</p>
-        <div className="display text-3xl font-bold tabular-nums" style={{ color: 'var(--ink)' }}>
-          {loading
-            ? <Loader2 size={20} className="animate-spin inline" style={{ color: 'var(--muted)' }} />
-            : balance !== null ? `$${formatUSDC(parseFloat(balance))}` : '—'}
+      {/* Balance + stats */}
+      <div className="px-4 pt-4 pb-2 flex gap-3">
+        <div className="flex-1 p-4 rounded-2xl border" style={{ background: 'var(--surface-muted)', borderColor: 'var(--border)' }}>
+          <p className="text-xs font-medium mb-1 uppercase tracking-wide" style={{ color: 'var(--muted)' }}>Balance</p>
+          <div className="display text-2xl font-bold tabular-nums" style={{ color: 'var(--ink)' }}>
+            {loading ? <Loader2 size={16} className="animate-spin inline" style={{ color: 'var(--muted)' }} />
+              : balance !== null ? `$${formatUSDC(parseFloat(balance))}` : '—'}
+          </div>
         </div>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>{user.oneId} · Arc Testnet</p>
+        <div className="flex flex-col gap-2 flex-1">
+          <div className="flex-1 p-3 rounded-xl border flex items-center gap-2" style={{ background: 'var(--danger-bg)', borderColor: 'var(--border)' }}>
+            <TrendingDown size={13} style={{ color: 'var(--danger)', flexShrink: 0 }} />
+            <div><div className="text-xs font-semibold tabular-nums" style={{ color: 'var(--danger)' }}>-${totalSent.toFixed(2)}</div><div className="text-xs" style={{ color: 'var(--muted)' }}>Sent</div></div>
+          </div>
+          <div className="flex-1 p-3 rounded-xl border flex items-center gap-2" style={{ background: 'var(--success-bg)', borderColor: 'var(--border)' }}>
+            <TrendingUp size={13} style={{ color: 'var(--success)', flexShrink: 0 }} />
+            <div><div className="text-xs font-semibold tabular-nums" style={{ color: 'var(--success)' }}>+${totalReceived.toFixed(2)}</div><div className="text-xs" style={{ color: 'var(--muted)' }}>Received</div></div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filter tabs */}
+      <div className="flex gap-1 px-4 pb-2">
+        {(['all', 'sent', 'received'] as FilterTab[]).map((f) => (
+          <button key={f} onClick={() => setFilter(f)}
+            style={{ padding: '5px 14px', borderRadius: 20, border: '1px solid var(--border)', fontSize: 12, fontWeight: filter === f ? 600 : 400, cursor: 'pointer', background: filter === f ? 'var(--ink)' : 'transparent', color: filter === f ? 'var(--bg)' : 'var(--muted)', textTransform: 'capitalize' }}>
+            {f}
+          </button>
+        ))}
       </div>
 
       {/* Transaction list */}
@@ -109,12 +139,12 @@ export function ActivityView({ user, session }: ActivityViewProps) {
             </p>
           </div>
         )}
-        {txs.map((tx) => {
+        {filtered.map((tx) => {
           const isSent = tx.sender_id === session.user.id;
-          const stateColor = tx.state === 'COMPLETE' ? 'var(--success)'
-            : tx.state === 'FAILED' || tx.state === 'DENIED' ? 'var(--danger)'
-            : 'var(--muted)';
-          const stateLabel = tx.state === 'COMPLETE' ? 'Confirmed' : tx.state === 'FAILED' || tx.state === 'DENIED' ? 'Failed' : 'Processing';
+          const isConfirmed = ['CONFIRMED', 'COMPLETE', 'SENT'].includes(tx.state);
+          const isFailed = ['FAILED', 'DENIED', 'CANCELLED'].includes(tx.state);
+          const stateColor = isConfirmed ? 'var(--success)' : isFailed ? 'var(--danger)' : 'var(--muted)';
+          const stateLabel = isConfirmed ? 'Confirmed' : isFailed ? 'Failed' : 'Processing';
           const url = tx.tx_hash ? explorerUrl(tx.tx_hash) : null;
           return (
             <div key={tx.id} className="flex items-center gap-3 px-5 py-3.5 border-b"

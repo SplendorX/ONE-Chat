@@ -393,6 +393,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
+    // --- Balance check: return actual balance ---
+    if (/\bbalance\b|\bhow much\b.*\bhave\b|\bwhat.*\bbalance\b|\bmy balance\b/i.test(clean)) {
+      try {
+        const { data: w } = await db().from('wallets').select('circle_wallet_id').eq('user_id', user.userId).maybeSingle();
+        if (w?.circle_wallet_id) {
+          const balRes = await circle().getWalletTokenBalance({ id: w.circle_wallet_id as string });
+          const usdc = (balRes.data?.tokenBalances ?? []).find((b: { token?: { symbol?: string }; amount?: string }) => b.token?.symbol === 'USDC');
+          const bal = usdc?.amount ?? '0';
+          res.json({ reply: `Your current USDC balance is $${parseFloat(bal).toFixed(2)} on Arc Network. Want to send or save some?`, usedLlm: false }); return;
+        }
+      } catch { /* fall through */ }
+      res.json({ reply: "You can see your live USDC balance in the You tab.", usedLlm: false }); return;
+    }
+
+    // --- Split bill: parse total + people count, calculate shares ---
+    const splitMatch = clean.match(/split\s+\$?([\d.]+)(?:\s+usdc)?(?:\s+(?:between|among|with|for))?\s+(\d+)\s+(?:people|persons?|ways?|friends?)/i)
+      || clean.match(/(\d+)\s+(?:people|persons?|ways?|friends?)\s+(?:split|splitting|share|sharing)\s+\$?([\d.]+)/i)
+      || clean.match(/split\s+(?:a\s+)?bill\s+(?:of\s+)?\$?([\d.]+)\s+(\d+)\s*ways?/i);
+    if (splitMatch) {
+      const total = parseFloat(splitMatch[1]) || parseFloat(splitMatch[2]);
+      const people = parseInt(splitMatch[2] || splitMatch[1]);
+      if (!isNaN(total) && !isNaN(people) && people > 1) {
+        const share = (total / people).toFixed(2);
+        res.json({ reply: `$${total.toFixed(2)} split ${people} ways = $${share} each. I can send each person their share — just give me their .one handles and I'll send them one by one.`, usedLlm: false }); return;
+      }
+    }
+    // Split with explicit names: "split 30 between alice, bob, carol"
+    const splitNamesMatch = clean.match(/split\s+\$?([\d.]+)(?:\s+usdc)?\s+(?:between|among|with)\s+(.+)/i);
+    if (splitNamesMatch) {
+      const total = parseFloat(splitNamesMatch[1]);
+      const names = splitNamesMatch[2].split(/,\s*|\s+and\s+/).map((n) => n.trim()).filter(Boolean);
+      if (!isNaN(total) && names.length > 0) {
+        const share = (total / names.length).toFixed(2);
+        const list = names.map((n) => `${n}: $${share}`).join(', ');
+        res.json({ reply: `$${total.toFixed(2)} split ${names.length} ways: ${list}. Want me to send these now? Say "send ${share} USDC to [handle]" for each person.`, usedLlm: false }); return;
+      }
+    }
+
     const LOCAL_PATTERNS: [RegExp, string][] = [
       [/^(hi|hey|hello|sup|yo|what'?s up|howdy)[\s!?.]*$/i, "Hey! I'm ALLIE — your financial assistant in ONE Chat. I can send USDC, check your balance, split bills, and more. What do you need?"],
       [/^(thanks?|thank you|thx|ty|cheers)[\s!.]*$/i, "You're welcome! Let me know if you need anything else."],
@@ -400,11 +438,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       [/^(ok|okay|got it|sure|nice|cool|great|awesome|perfect|sounds good)[\s!.]*$/i, "Got it! Anything else I can help with?"],
       [/\bwho are you\b|\bwhat are you\b/i, "I'm ALLIE — the AI financial assistant built into ONE Chat. I can send USDC, check balances, split bills, and explain transactions."],
       [/\bwhat can you do\b|\bhelp\b|\bcommands?\b/i, "I can: send USDC to any .one handle or wallet address, check your balance, split bills, request payments, and explain transactions. Just ask naturally!"],
-      [/\bbalance\b|\bhow much\b.*\bhave\b|\bwhat.*\bbalance\b/i, "You can see your live USDC balance in the You tab. Want me to help you send or request funds?"],
-      [/\bhow.*send\b|\bsend.*how\b|\bwhat.*send\b/i, "Just say 'send 5 USDC to alice.one' — I'll handle it. You can use a .one handle or a wallet address starting with 0x."],
-      [/\brequest\b.*\busdc\b|\bask.*\bpay\b/i, "Payment requests aren't automated yet, but you can tap the $ button in any conversation to send USDC directly."],
-      [/\bsplit\b.*\bbill\b|\bbill\b.*\bsplit\b|\bsplit\b.*\bcost\b/i, "For bill splits, tell me the total and the participants — I'll calculate each person's share and you can send it directly."],
+      [/\bhow.*send\b|\bsend.*how\b|\bwhat.*send\b/i, "Just say 'send 5 USDC to alice.one' and I'll handle it. You can use a .one handle or a wallet address starting with 0x."],
+      [/\brequest\b.*\bpayment\b|\brequest\b.*\busdc\b|\bask.*\bpay\b/i, "Tap the $ button in any conversation to send or request USDC. I can also send on your behalf — just say 'send X USDC to handle'."],
       [/\btransaction\b|\bhistory\b|\bactivity\b/i, "Check the Activity tab for your full transaction history, including explorer links for every confirmed payment."],
+      [/\bsave\b|\bsaving\b|\bgoal\b/i, "You can create savings goals in the You tab — set a target amount and deadline, and track your progress. Want help setting one up?"],
     ];
     for (const [pattern, reply] of LOCAL_PATTERNS) {
       if (pattern.test(clean)) { res.json({ reply, usedLlm: false }); return; }
@@ -461,10 +498,10 @@ Help users: send USDC by .one handle or wallet address, understand transactions,
   if (path === '/subscription/subscribe' && req.method === 'POST') {
     const user = await getUser(req, res); if (!user) return;
     // Check already pro
-    const { data: profile } = await params.supabase.from('profiles').select('is_pro').eq('id', user.userId).maybeSingle();
+    const { data: profile } = await db().from('profiles').select('is_pro').eq('id', user.userId).maybeSingle();
     if (profile?.is_pro) { res.json({ success: true, alreadyPro: true, message: "You're already a ONE Pro member!" }); return; }
     // Get sender wallet
-    const { data: wallet } = await params.supabase.from('wallets').select('circle_wallet_id, address').eq('user_id', user.userId).maybeSingle();
+    const { data: wallet } = await db().from('wallets').select('circle_wallet_id, address').eq('user_id', user.userId).maybeSingle();
     if (!wallet?.circle_wallet_id) { res.status(400).json({ error: 'Wallet not set up. Go to the You tab first.' }); return; }
     // Charge 5 USDC — send to app treasury address (owner's wallet)
     const treasuryAddress = process.env.VITE_TREASURY_ADDRESS;
@@ -486,11 +523,95 @@ Help users: send USDC by .one handle or wallet address, understand transactions,
       }
       // Mark pro + record expiry (30 days)
       const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-      await params.supabase.from('profiles').update({ is_pro: true, pro_expires_at: expiresAt }).eq('id', user.userId);
+      await db().from('profiles').update({ is_pro: true, pro_expires_at: expiresAt }).eq('id', user.userId);
       res.json({ success: true, message: 'Welcome to ONE Pro! You now have full ALLIE AI access.', expiresAt });
     } catch (err) {
       res.status(500).json({ error: err instanceof Error ? err.message : 'Subscription failed' });
     }
+    return;
+  }
+
+  // GET /wallet/savings — get user's savings goals
+  if (path === '/wallet/savings' && req.method === 'GET') {
+    const user = await getUser(req, res); if (!user) return;
+    const { data, error } = await db().from('savings_goals')
+      .select('id, name, target_amount, current_amount, deadline, created_at, is_completed')
+      .eq('user_id', user.userId)
+      .order('created_at', { ascending: false });
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    res.json({ goals: data ?? [] });
+    return;
+  }
+
+  // POST /wallet/savings — create a savings goal
+  if (path === '/wallet/savings' && req.method === 'POST') {
+    const user = await getUser(req, res); if (!user) return;
+    const { name, targetAmount, deadline } = req.body as { name?: string; targetAmount?: string; deadline?: string };
+    if (!name || !targetAmount) { res.status(400).json({ error: 'name and targetAmount required' }); return; }
+    const { data, error } = await db().from('savings_goals').insert({
+      user_id: user.userId, name, target_amount: targetAmount, current_amount: '0', deadline: deadline ?? null,
+    }).select().single();
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    res.json({ goal: data });
+    return;
+  }
+
+  // POST /wallet/savings/:id/deposit — move USDC into a goal (tracked only, no actual lock)
+  if (path.match(/^\/wallet\/savings\/[^/]+\/deposit$/) && req.method === 'POST') {
+    const user = await getUser(req, res); if (!user) return;
+    const goalId = path.split('/')[3];
+    const { amount } = req.body as { amount?: string };
+    if (!amount) { res.status(400).json({ error: 'amount required' }); return; }
+    const { data: goal } = await db().from('savings_goals').select('current_amount, target_amount').eq('id', goalId).eq('user_id', user.userId).maybeSingle();
+    if (!goal) { res.status(404).json({ error: 'Goal not found' }); return; }
+    const newAmount = (parseFloat(goal.current_amount as string) + parseFloat(amount)).toFixed(6);
+    const isCompleted = parseFloat(newAmount) >= parseFloat(goal.target_amount as string);
+    const { error } = await db().from('savings_goals').update({ current_amount: newAmount, is_completed: isCompleted }).eq('id', goalId);
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    res.json({ newAmount, isCompleted });
+    return;
+  }
+
+  // DELETE /wallet/savings/:id — delete a savings goal
+  if (path.match(/^\/wallet\/savings\/[^/]+$/) && req.method === 'DELETE') {
+    const user = await getUser(req, res); if (!user) return;
+    const goalId = path.split('/')[3];
+    const { error } = await db().from('savings_goals').delete().eq('id', goalId).eq('user_id', user.userId);
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    res.json({ success: true });
+    return;
+  }
+
+  // POST /payment/request — create a payment request (stored, notified via message)
+  if (path === '/payment/request' && req.method === 'POST') {
+    const user = await getUser(req, res); if (!user) return;
+    const { toHandle, amount, note, conversationId } = req.body as {
+      toHandle?: string; amount?: string; note?: string; conversationId?: string;
+    };
+    if (!toHandle || !amount) { res.status(400).json({ error: 'toHandle and amount required' }); return; }
+    const handle = (toHandle as string).replace(/\.one$/, '');
+    const { data: identity } = await db().from('one_identities').select('user_id').eq('handle', handle).maybeSingle();
+    if (!identity) { res.status(404).json({ error: `${toHandle} not found` }); return; }
+    // Store as a transaction with state=REQUESTED
+    const { data: req_, error } = await db().from('transactions').insert({
+      sender_id: identity.user_id,
+      recipient_id: user.userId,
+      amount, asset: 'USDC', state: 'REQUESTED',
+      idempotency_key: `req-${user.userId}-${Date.now()}`,
+    }).select().single();
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    // Post a payment_request message to the conversation if provided
+    if (conversationId) {
+      const { data: senderIdentity } = await db().from('one_identities').select('handle').eq('user_id', user.userId).maybeSingle();
+      await db().from('messages').insert({
+        conversation_id: conversationId,
+        sender_id: user.userId,
+        type: 'payment_request',
+        content: `Requested $${amount} USDC`,
+        metadata: { amount, note: note ?? '', requestId: (req_ as { id: string })?.id, requesterHandle: senderIdentity?.handle ?? '' },
+      });
+    }
+    res.json({ success: true, requestId: (req_ as { id: string })?.id });
     return;
   }
 

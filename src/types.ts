@@ -1,7 +1,7 @@
 // One Chat — shared types
 
 export type View = 'landing' | 'auth' | 'onboarding' | 'app';
-export type AppTab = 'chats' | 'contacts' | 'activity' | 'channels' | 'you';
+export type AppTab = 'chats' | 'contacts' | 'activity' | 'channels' | 'savings' | 'you';
 export type Theme = 'light' | 'dark';
 
 export interface User {

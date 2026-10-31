@@ -113,6 +113,29 @@ export async function subscribeToPro() {
   return post<{ success: boolean; alreadyPro?: boolean; message: string; expiresAt?: string }>('/subscription/subscribe', {});
 }
 
+export async function getSavingsGoals() {
+  return get<{ goals: { id: string; name: string; target_amount: string; current_amount: string; deadline: string | null; created_at: string; is_completed: boolean }[] }>('/wallet/savings');
+}
+
+export async function createSavingsGoal(params: { name: string; targetAmount: string; deadline?: string }) {
+  return post<{ goal: unknown }>('/wallet/savings', params);
+}
+
+export async function depositToGoal(goalId: string, amount: string) {
+  return post<{ newAmount: string; isCompleted: boolean }>(`/wallet/savings/${goalId}/deposit`, { amount });
+}
+
+export async function deleteGoal(goalId: string) {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_BASE}/wallet/savings/${goalId}`, { method: 'DELETE', headers });
+  if (!res.ok) { const b = await res.json().catch(() => ({})) as { error?: string }; throw new Error(b.error ?? 'Delete failed'); }
+  return res.json() as Promise<{ success: boolean }>;
+}
+
+export async function requestPayment(params: { toHandle: string; amount: string; note?: string; conversationId?: string }) {
+  return post<{ success: boolean; requestId: string }>('/payment/request', params);
+}
+
 export async function getPaymentStatus(txId: string) {
   return get<{
     transaction: {
