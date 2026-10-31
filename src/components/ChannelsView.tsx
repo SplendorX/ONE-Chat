@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Radio, Heart, Gift, Share2, MessageCircle, Plus, X, Verified,
+  Radio, Heart, Gift, Share2, MessageCircle, Plus, X, Search, Verified,
   TrendingUp, Loader2, ChevronDown, ChevronUp, Send, Image as ImageIcon,
   BarChart2, Lock, Crown, Sparkles, Zap,
 } from 'lucide-react';
@@ -52,6 +52,7 @@ const CATEGORY_ICONS: Record<string, React.ElementType> = {
 export function ChannelsView({ user, session }: ChannelsViewProps) {
   const [activeTab, setActiveTab] = useState<'following' | 'discover' | 'create'>('following');
   const [category, setCategory] = useState('All');
+  const [channelSearch, setChannelSearch] = useState('');
   const [channels, setChannels] = useState<ChannelGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [giftTarget, setGiftTarget] = useState<{ postId: string; channelHandle: string; channelName: string; excerpt: string } | null>(null);
@@ -220,6 +221,19 @@ export function ChannelsView({ user, session }: ChannelsViewProps) {
           ))}
         </div>
 
+        {/* Search */}
+        {activeTab !== 'create' && (
+          <div className="flex items-center gap-2 px-1 py-2 mb-1 rounded-xl" style={{ background: 'var(--surface-muted)', border: '1px solid var(--border)' }}>
+            <Search size={14} style={{ color: 'var(--muted)', flexShrink: 0, marginLeft: 8 }} />
+            <input type="text" value={channelSearch} onChange={(e) => setChannelSearch(e.target.value)}
+              placeholder="Search channels..." className="flex-1 text-sm bg-transparent outline-none"
+              style={{ color: 'var(--ink)', padding: '2px 0' }} />
+            {channelSearch && <button onClick={() => setChannelSearch('')} style={{ color: 'var(--muted)', marginRight: 8 }}>
+              <X size={13} />
+            </button>}
+          </div>
+        )}
+
         {/* Category pills */}
         {activeTab !== 'create' && (
           <div className="flex gap-2 pb-3 overflow-x-auto hide-scrollbar">
@@ -270,7 +284,7 @@ export function ChannelsView({ user, session }: ChannelsViewProps) {
             </motion.div>
           ) : (
             <motion.div key="feed" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              {channels.map((channel) => (
+              {channels.filter((c) => !channelSearch || c.name.toLowerCase().includes(channelSearch.toLowerCase()) || c.handle.toLowerCase().includes(channelSearch.toLowerCase())).map((channel) => (
                 <ChannelSection key={channel.id} channel={channel}
                   userId={userId}
                   onToggleFollow={() => { void toggleFollow(channel.id, channel.isFollowing); }}

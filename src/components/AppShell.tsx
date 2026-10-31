@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ErrorBoundary } from './ErrorBoundary';
 import type { Session } from '@supabase/supabase-js';
-import { MessageCircle, Users, Activity, Radio, PiggyBank, UserCircle2 } from 'lucide-react';
+import { MessageCircle, Users, Activity, Radio, PiggyBank, UserCircle2, Search } from 'lucide-react';
 import { AllieIcon } from './AllieIcon';
 import { OneChatWordmark, OneChatLogo } from './Brand';
 import type { AppTab, Theme, User } from '../types';
@@ -14,6 +14,7 @@ import { ChannelsView } from './ChannelsView';
 import { ProfileView } from './ProfileView';
 import { SavingsView } from './SavingsView';
 import { ConversationView } from './ConversationView';
+import { GlobalSearch } from './GlobalSearch';
 import type { Conversation } from '../types';
 
 interface AppShellProps {
@@ -64,6 +65,7 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
   });
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [profile, setProfile] = useState<User | null>(null);
+  const [showSearch, setShowSearch] = useState(false);
 
   function setTab(t: AppTab) {
     setTabRaw(t);
@@ -241,12 +243,20 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
           style={{ borderColor: 'var(--border)', background: 'var(--surface-muted)' }}>
           <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: 'var(--border)' }}>
             <OneChatWordmark height={22} />
-            <button
-              className="w-8 h-8 rounded-full flex items-center justify-center"
-              style={{ background: 'var(--ink)', color: 'var(--bg)' }}
-              title="New conversation">
-              <span className="text-lg leading-none font-light">+</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setShowSearch(true)}
+                className="w-8 h-8 rounded-full flex items-center justify-center transition-all"
+                style={{ background: 'var(--surface-strong)', color: 'var(--muted)' }}
+                title="Search">
+                <Search size={15} />
+              </button>
+              <button
+                className="w-8 h-8 rounded-full flex items-center justify-center"
+                style={{ background: 'var(--ink)', color: 'var(--bg)' }}
+                title="New conversation">
+                <span className="text-lg leading-none font-light">+</span>
+              </button>
+            </div>
           </div>
 
           <nav className="py-3 px-3 space-y-0.5 flex-1">
@@ -347,19 +357,38 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
         </div>
 
         {!activeConv && (
-          <nav className="flex-shrink-0 flex items-center justify-around px-2 py-2 border-t"
+          <nav className="flex-shrink-0 flex items-center justify-around px-1 py-2 border-t"
             style={{ background: 'var(--surface-card)', borderColor: 'var(--border)' }}>
             {TABS.map(({ id, label, Icon }) => (
               <button key={id} onClick={() => setTab(id)}
-                className="flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-all min-w-0"
+                className="flex flex-col items-center gap-1 py-1 px-2 rounded-xl transition-all min-w-0"
                 style={{ color: tab === id ? 'var(--ink)' : 'var(--muted)' }}>
-                <Icon size={22} strokeWidth={tab === id ? 2.2 : 1.8} />
-                <span className="text-xs font-medium" style={{ fontSize: '10px' }}>{label}</span>
+                <Icon size={20} strokeWidth={tab === id ? 2.2 : 1.8} />
+                <span className="text-xs font-medium" style={{ fontSize: '9px' }}>{label}</span>
               </button>
             ))}
+            <button onClick={() => setShowSearch(true)}
+              className="flex flex-col items-center gap-1 py-1 px-2 rounded-xl transition-all min-w-0"
+              style={{ color: 'var(--muted)' }}>
+              <Search size={20} strokeWidth={1.8} />
+              <span className="text-xs font-medium" style={{ fontSize: '9px' }}>Search</span>
+            </button>
           </nav>
         )}
       </div>
+
+      {/* Global search overlay */}
+      <AnimatePresence>
+        {showSearch && profile && (
+          <GlobalSearch
+            session={session}
+            conversations={conversations}
+            onSelectConversation={(conv) => { setTab('chats'); setActiveConv(conv); }}
+            onSelectChannel={() => setTab('channels')}
+            onClose={() => setShowSearch(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

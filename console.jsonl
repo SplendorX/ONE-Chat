@@ -899,3 +899,19 @@
 {"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793460760122}
 {"level":"debug","message":"[vite] hot updated: /src/components/ActivityView.tsx","timestamp":1793460760123}
 {"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793460760123}
+{"level":"debug","message":"[vite] connected.","timestamp":1793460816348}
+{"level":"debug","message":"[vite] hot updated: /src/components/AppShell.tsx","timestamp":1793460875050}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793460875050}
+{"level":"error","message":"[vite] TypeError: Importing a module script failed.","timestamp":1793460924598}
+{"level":"error","message":"[vite] Failed to reload /src/index.css. This could be due to syntax errors or importing non-existent modules. (see errors above)","timestamp":1793460924599}
+{"level":"error","message":"[vite] TypeError: Importing a module script failed.","timestamp":1793460924599}
+{"level":"error","message":"[vite] Failed to reload /src/components/AppShell.tsx. This could be due to syntax errors or importing non-existent modules. (see errors above)","timestamp":1793460924599}
+{"level":"debug","message":"[vite] hot updated: /src/components/AppShell.tsx","timestamp":1793460924599}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793460924599}
+{"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1793460924599}
+{"level":"debug","message":"[vite] hot updated: /src/components/ChannelsView.tsx","timestamp":1793460938034}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793460938034}
+{"level":"debug","message":"[vite] hot updated: /src/components/GlobalSearch.tsx","timestamp":1793460955879}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793460955879}
+{"level":"debug","message":"[vite] hot updated: /src/components/GlobalSearch.tsx","timestamp":1793460958787}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793460958787}
