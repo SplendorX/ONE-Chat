@@ -42441,15 +42441,17 @@ async function handler(req, res) {
         destAddress = wallet.address;
         resolvedHandle = identity.handle;
       }
+      let dbWalletId = "";
+      let resolvedTokenId = "";
       try {
         const senderWallet = await db().from("wallets").select("circle_wallet_id").eq("user_id", user.userId).maybeSingle();
         if (!senderWallet.data?.circle_wallet_id) {
           res.json({ reply: "You don't have a wallet set up yet. Go to the You tab and set up your wallet first.", usedLlm: false });
           return;
         }
+        dbWalletId = senderWallet.data.circle_wallet_id;
         const idempotencyKey = `allie-${user.userId}-${Date.now()}`;
-        const walletId = senderWallet.data.circle_wallet_id;
-        const balRes = await circle().getWalletTokenBalance({ id: walletId });
+        const balRes = await circle().getWalletTokenBalance({ id: dbWalletId });
         const usdcToken = (balRes.data?.tokenBalances ?? []).find(
           (b) => b.token?.symbol === "USDC" || b.token?.name?.includes("USD Coin")
         );
@@ -42457,19 +42459,20 @@ async function handler(req, res) {
           res.json({ reply: "I couldn't find USDC in your wallet. Make sure your wallet is funded.", usedLlm: false });
           return;
         }
+        resolvedTokenId = usdcToken.token.id;
         if (!destAddress) {
           res.json({ reply: `I couldn't find a wallet for "${rawRecipient}". Make sure they have a ONE Chat account and wallet set up.`, usedLlm: false });
           return;
         }
         const txRes = await circle().createTransaction({
-          walletId,
-          tokenId: usdcToken.token.id,
+          walletId: dbWalletId,
+          tokenId: resolvedTokenId,
           destinationAddress: destAddress,
-          amounts: [String(amountNum)],
+          amounts: [amountNum.toFixed(6)],
           fee: { type: "level", config: { feeLevel: "MEDIUM" } },
           idempotencyKey
         });
-        const circleTxId = txRes.data?.transaction?.id ?? "";
+        const circleTxId = txRes.data?.id ?? txRes.data?.transaction?.id ?? "";
         const { state: finalState } = await pollCircleUntilTerminal(circleTxId, 8e3);
         await db().from("transactions").insert({
           sender_id: user.userId,
@@ -42489,7 +42492,7 @@ async function handler(req, res) {
       } catch (err) {
         const errObj = err;
         const detail = errObj?.response?.data ?? errObj?.message ?? String(err);
-        res.json({ reply: `[debug] ${JSON.stringify(detail)} dest=${destAddress} amt=${amountNum}`, usedLlm: false });
+        res.json({ reply: `[debug] ${JSON.stringify(detail)} dest=${destAddress} amt=${amountNum.toFixed(6)} tokenId=${resolvedTokenId} walletId=${dbWalletId}`, usedLlm: false });
       }
       return;
     }

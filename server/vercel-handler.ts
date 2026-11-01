@@ -353,15 +353,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         resolvedHandle = identity.handle as string;
       }
       // Execute the payment via Circle
+      let dbWalletId = '';
+      let resolvedTokenId = '';
       try {
         const senderWallet = await db().from('wallets').select('circle_wallet_id').eq('user_id', user.userId).maybeSingle();
         if (!senderWallet.data?.circle_wallet_id) {
           res.json({ reply: "You don't have a wallet set up yet. Go to the You tab and set up your wallet first.", usedLlm: false }); return;
         }
+        dbWalletId = senderWallet.data.circle_wallet_id as string;
         const idempotencyKey = `allie-${user.userId}-${Date.now()}`;
         // Look up token ID from wallet balances — never hardcode
-        const walletId = senderWallet.data.circle_wallet_id as string;
-        const balRes = await circle().getWalletTokenBalance({ id: walletId });
+        const balRes = await circle().getWalletTokenBalance({ id: dbWalletId });
         const usdcToken = (balRes.data?.tokenBalances ?? []).find(
           (b: { token?: { symbol?: string; id?: string; name?: string } }) =>
             b.token?.symbol === 'USDC' || b.token?.name?.includes('USD Coin')
@@ -369,18 +371,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!usdcToken?.token?.id) {
           res.json({ reply: "I couldn't find USDC in your wallet. Make sure your wallet is funded.", usedLlm: false }); return;
         }
+        resolvedTokenId = usdcToken.token.id as string;
         if (!destAddress) {
           res.json({ reply: `I couldn't find a wallet for "${rawRecipient}". Make sure they have a ONE Chat account and wallet set up.`, usedLlm: false }); return;
         }
         const txRes = await circle().createTransaction({
-          walletId,
-          tokenId: usdcToken.token.id as string,
+          walletId: dbWalletId,
+          tokenId: resolvedTokenId,
           destinationAddress: destAddress,
-          amounts: [String(amountNum)],
+          amounts: [amountNum.toFixed(6)],
           fee: { type: 'level', config: { feeLevel: 'MEDIUM' } },
           idempotencyKey,
         });
-        const circleTxId = (txRes.data as { transaction?: { id?: string } })?.transaction?.id ?? '';
+        const circleTxId = (txRes.data as { id?: string; transaction?: { id?: string } })?.id ?? (txRes.data as { transaction?: { id?: string } })?.transaction?.id ?? '';
         const { state: finalState } = await pollCircleUntilTerminal(circleTxId, 8000);
         await db().from('transactions').insert({
           sender_id: user.userId,
@@ -402,7 +405,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       } catch (err: unknown) {
         const errObj = err as { message?: string; response?: { data?: unknown }; code?: string };
         const detail = errObj?.response?.data ?? errObj?.message ?? String(err);
-        res.json({ reply: `[debug] ${JSON.stringify(detail)} dest=${destAddress} amt=${amountNum}`, usedLlm: false });
+        res.json({ reply: `[debug] ${JSON.stringify(detail)} dest=${destAddress} amt=${amountNum.toFixed(6)} tokenId=${resolvedTokenId} walletId=${dbWalletId}`, usedLlm: false });
       }
       return;
     }
