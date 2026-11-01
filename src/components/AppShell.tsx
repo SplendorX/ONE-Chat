@@ -108,24 +108,28 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
       });
     }
     void loadProfile();
-  }, [session]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uid]); // uid is stable; session object reference changes on every render
 
   // Load real conversations from Supabase
   useEffect(() => {
     let cancelled = false;
 
-    async function applyResult(result: Conversation[]) {
+    function applyResult(result: Conversation[]) {
       if (cancelled) return;
-      // Only update if we got real data — never wipe conversations on an empty result
-      if (result.length > 0) setConversations(result);
-      setActiveConvRaw((prev) => {
-        if (!prev || prev.id === 'allie') return prev;
-        const fresh = result.find((c) => c.id === prev.id);
-        if (!fresh) return prev; // keep localStorage value — conv exists, just not in list yet
-        const merged = { ...prev, ...fresh };
-        try { localStorage.setItem(CONV_KEY, JSON.stringify(merged)); } catch { /* ignore */ }
-        return merged;
-      });
+      // Never wipe conversations on an empty result — empty means the query failed or user has none yet
+      if (result.length > 0) {
+        setConversations(result);
+        // Only merge the active conv metadata if we have real results — never touch it on empty
+        setActiveConvRaw((prev) => {
+          if (!prev || prev.id === 'allie') return prev;
+          const fresh = result.find((c) => c.id === prev.id);
+          if (!fresh) return prev; // conv not in this page — keep what we have
+          const merged = { ...prev, ...fresh };
+          try { localStorage.setItem(CONV_KEY, JSON.stringify(merged)); } catch { /* ignore */ }
+          return merged;
+        });
+      }
     }
 
     async function loadViaFallback() {
@@ -147,7 +151,7 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
         lastMessage: '',
         lastMessageTime: new Date(c.updated_at as string),
       }));
-      await applyResult(result);
+      applyResult(result);
     }
 
     async function loadConversations() {
@@ -179,7 +183,7 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
           lastMessageTime: new Date(c.last_at ?? c.updated_at),
         };
       });
-      await applyResult(result);
+      applyResult(result);
     }
 
     // Run immediately, then retry once after 2s in case auth wasn't ready
@@ -188,7 +192,8 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
     });
 
     return () => { cancelled = true; };
-  }, [session, CONV_KEY]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uid, CONV_KEY]); // uid is stable — session object reference changes on every render
 
   // Subscribe to conversation list updates via Realtime
   useEffect(() => {
@@ -221,7 +226,8 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
       })
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
-  }, [session]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uid]); // uid is stable
 
   if (!profile) {
     return (
