@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Session } from '@supabase/supabase-js';
-import { ArrowLeft, Phone, MoreHorizontal, Send, Paperclip, DollarSign, Check, CheckCheck, Loader2, BellOff, Trash2, Share, Receipt } from 'lucide-react';
+import { ArrowLeft, Phone, MoreHorizontal, Send, Paperclip, DollarSign, Check, CheckCheck, Loader2, BellOff, Trash2, Share, Receipt, Settings } from 'lucide-react';
 import { AllieIcon } from './AllieIcon';
 import { BillSplitMessage } from './BillSplitMessage';
 import { BillSplitSheet } from './BillSplitSheet';
+import { GroupSettingsSheet } from './GroupSettingsSheet';
 import type { Conversation, Message, User } from '../types';
 import { supabase } from '../lib/supabase';
 import { formatDate, formatTimestamp } from '../lib/utils';
@@ -34,6 +35,7 @@ function groupByDate(messages: Message[]) {
 
 export function ConversationView({ conversation, user, session, onBack }: ConversationViewProps) {
   const isAllie = conversation.id === 'allie';
+  const [convName, setConvName] = useState(conversation.name);
   const ALLIE_WELCOME_DATE = useRef(new Date()).current; // stable, current time
   const allieWelcome: Message[] = isAllie ? [{
     id: 'allie-welcome',
@@ -57,6 +59,7 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
   const [otherTyping, setOtherTyping] = useState(false);
   const [allieHistory, setAllieHistory] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
   const [showMenu, setShowMenu] = useState(false);
+  const [showGroupSettings, setShowGroupSettings] = useState(false);
   const [showBillSplit, setShowBillSplit] = useState(false);
   const [groupMembers, setGroupMembers] = useState<{ userId: string; handle: string; displayName: string }[]>([]);
   const [muted, setMuted] = useState(false);
@@ -339,7 +342,7 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
         </div>
 
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-sm truncate" style={{ color: 'var(--ink)' }}>{conversation.name}</div>
+          <div className="font-semibold text-sm truncate" style={{ color: 'var(--ink)' }}>{convName}</div>
           {isAllie
             ? <div className="text-xs flex items-center gap-2" style={{ color: 'var(--muted)' }}>
                 {user.isPro
@@ -376,9 +379,17 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
                 className="absolute right-0 top-10 z-50 rounded-2xl overflow-hidden border shadow-lg"
                 style={{ background: 'var(--surface-card)', borderColor: 'var(--border)', minWidth: 180 }}
                 onMouseLeave={() => setShowMenu(false)}>
+                {conversation.type === 'group' && (
+                  <button onClick={() => { setShowGroupSettings(true); setShowMenu(false); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-sm transition-all hover:bg-[var(--surface-muted)] text-left"
+                    style={{ color: 'var(--ink)', background: 'transparent', border: 'none', cursor: 'pointer' }}>
+                    <Settings size={14} style={{ color: 'var(--muted)' }} />
+                    Group settings
+                  </button>
+                )}
                 <button onClick={() => { setMuted((v) => !v); setShowMenu(false); }}
                   className="w-full flex items-center gap-3 px-4 py-3 text-sm transition-all hover:bg-[var(--surface-muted)] text-left"
-                  style={{ color: 'var(--ink)', background: 'transparent', border: 'none', cursor: 'pointer' }}>
+                  style={{ color: 'var(--ink)', background: 'transparent', border: 'none', cursor: 'pointer', borderTop: conversation.type === 'group' ? '1px solid var(--border)' : 'none' }}>
                   <BellOff size={14} style={{ color: 'var(--muted)' }} />
                   {muted ? 'Unmute notifications' : 'Mute notifications'}
                 </button>
@@ -559,6 +570,17 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
         <ProUpgradeModal
           onClose={() => setShowProUpgrade(false)}
           onUpgraded={() => { window.location.reload(); }}
+        />
+      )}
+
+      {/* Group settings sheet */}
+      {showGroupSettings && (
+        <GroupSettingsSheet
+          conversation={{ ...conversation, name: convName }}
+          session={session}
+          onClose={() => setShowGroupSettings(false)}
+          onLeft={() => { setShowGroupSettings(false); onBack(); }}
+          onNameChanged={(name) => { setConvName(name); setShowGroupSettings(false); }}
         />
       )}
 
