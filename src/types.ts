@@ -22,6 +22,7 @@ export interface Message {
   conversationId: string;
   senderId: string;
   senderName: string;
+  senderAvatar?: string;
   type: 'text' | 'payment' | 'payment_request' | 'request' | 'gift' | 'bill_split' | 'savings_goal' | 'system' | 'image';
   content: string | null;
   metadata?: Record<string, unknown>;

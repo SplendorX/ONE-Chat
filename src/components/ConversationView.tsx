@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Session } from '@supabase/supabase-js';
-import { ArrowLeft, Phone, MoreHorizontal, Send, Paperclip, DollarSign, Check, CheckCheck, Loader2, BellOff, Trash2, Share, Receipt, Settings } from 'lucide-react';
+import { ArrowLeft, Phone, MoreHorizontal, Send, Paperclip, DollarSign, Check, CheckCheck, Loader2, BellOff, Trash2, Share, Receipt, Settings, Smile } from 'lucide-react';
 import { AllieIcon } from './AllieIcon';
 import { BillSplitMessage } from './BillSplitMessage';
 import { BillSplitSheet } from './BillSplitSheet';
 import { GroupSettingsSheet } from './GroupSettingsSheet';
+import { EmojiPicker } from './EmojiPicker';
 import type { Conversation, Message, User } from '../types';
 import { supabase } from '../lib/supabase';
 import { formatDate, formatTimestamp } from '../lib/utils';
@@ -59,6 +60,7 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
   const [otherTyping, setOtherTyping] = useState(false);
   const [allieHistory, setAllieHistory] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
   const [showMenu, setShowMenu] = useState(false);
+  const [showEmoji, setShowEmoji] = useState(false);
   const [showGroupSettings, setShowGroupSettings] = useState(false);
   const [showBillSplit, setShowBillSplit] = useState(false);
   const [groupMembers, setGroupMembers] = useState<{ userId: string; handle: string; displayName: string }[]>([]);
@@ -79,7 +81,7 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
       setLoading(true);
       const { data, error: fetchErr } = await supabase
         .from('messages')
-        .select('id, sender_id, type, content, metadata, created_at, edited_at, profiles(display_name)')
+        .select('id, sender_id, type, content, metadata, created_at, edited_at, profiles(display_name, avatar_url)')
         .eq('conversation_id', conversation.id)
         .order('created_at', { ascending: true })
         .limit(100);
@@ -87,12 +89,13 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
 
       if (data) {
         setMessages(data.map((m) => {
-          const profile = m.profiles as { display_name?: string } | null;
+          const profile = m.profiles as { display_name?: string; avatar_url?: string | null } | null;
           return {
             id: m.id as string,
             conversationId: conversation.id,
             senderId: m.sender_id as string,
             senderName: profile?.display_name ?? '',
+            senderAvatar: profile?.avatar_url ?? undefined,
             type: (m.type as Message['type']) ?? 'text',
             content: (m.content as string) ?? '',
             metadata: (m.metadata as Record<string, unknown>) ?? undefined,
@@ -208,11 +211,13 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
         };
         setMessages((prev) => prev.some((p) => p.id === row.id) ? prev : [...prev, row]);
         // Backfill sender name
-        void supabase.from('profiles').select('display_name').eq('id', m.sender_id).maybeSingle()
+        void supabase.from('profiles').select('display_name, avatar_url').eq('id', m.sender_id).maybeSingle()
           .then(({ data: p }) => {
-            if (!p?.display_name) return;
+            if (!p) return;
             setMessages((prev) => prev.map((msg) =>
-              msg.id === m.id ? { ...msg, senderName: p.display_name as string } : msg
+              msg.id === m.id
+                ? { ...msg, senderName: (p.display_name as string) ?? msg.senderName, senderAvatar: (p.avatar_url as string | null) ?? msg.senderAvatar }
+                : msg
             ));
           });
       })
@@ -541,8 +546,14 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
       </div>
 
       {/* Composer */}
-      <div className="flex-shrink-0 px-4 py-3 border-t"
+      <div className="flex-shrink-0 px-4 py-3 border-t relative"
         style={{ background: 'var(--surface-card)', borderColor: 'var(--border)' }}>
+        {showEmoji && (
+          <EmojiPicker
+            onSelect={(e) => { setText((t) => t + e); setShowEmoji(false); }}
+            onClose={() => setShowEmoji(false)}
+          />
+        )}
         <div className="flex items-end gap-2">
           <button
             onClick={() => setShowPayment(true)}
@@ -592,11 +603,18 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
               value={text}
               onChange={(e) => handleTextChange(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={isAllie ? 'Ask ALLIE anything…' : 'Message… (type @ALLIE to tag AI)'}
+              placeholder={isAllie ? 'Ask ALLIE anything…' : 'Message…'}
               rows={1}
               className="flex-1 px-4 py-2.5 text-sm bg-transparent outline-none resize-none"
               style={{ color: 'var(--ink)', maxHeight: '120px' }}
             />
+            <button
+              onClick={() => setShowEmoji((v) => !v)}
+              className="w-8 h-9 flex items-center justify-center flex-shrink-0 mr-1"
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: showEmoji ? 'var(--gold)' : 'var(--muted)' }}
+              title="Emoji">
+              <Smile size={16} />
+            </button>
           </div>
 
           <button
@@ -706,18 +724,32 @@ function MessageBubble({ msg, isAllie, session }: { msg: Message; isAllie: boole
     );
   }
 
+  const initials = (msg.senderName || '?').slice(0, 1).toUpperCase();
+
   return (
     <div className={`flex items-end gap-2 my-0.5 ${msg.isOwn ? 'flex-row-reverse' : 'flex-row'}`}>
+      {/* Avatar — shown for incoming messages */}
       {!msg.isOwn && !isAllie && (
-        <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mb-1"
-          style={{ background: 'var(--ink)', color: 'var(--bg)' }}>
-          {(msg.senderName || '?').slice(0, 1)}
-        </div>
+        msg.senderAvatar
+          ? <img src={msg.senderAvatar} alt={msg.senderName}
+              className="w-7 h-7 rounded-full object-cover flex-shrink-0 mb-1"
+              style={{ border: '1.5px solid var(--border)' }} />
+          : <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mb-1"
+              style={{ background: 'var(--ink)', color: 'var(--bg)', fontSize: 11 }}>
+              {initials}
+            </div>
       )}
       {!msg.isOwn && isAllie && (
-        <AllieIcon size={26} state="idle" className="mb-1 flex-shrink-0" />
+        <AllieIcon size={28} state="idle" className="mb-1 flex-shrink-0" />
       )}
+
       <div className="max-w-xs lg:max-w-sm">
+        {/* Sender name for group incoming messages */}
+        {!msg.isOwn && !isAllie && msg.senderName && (
+          <div className="text-xs font-medium mb-0.5 px-1" style={{ color: 'var(--muted)' }}>
+            {msg.senderName}
+          </div>
+        )}
         {msg.type === 'image' && msg.content ? (
           <img src={msg.content} alt="attachment"
             className={`max-w-xs rounded-2xl ${msg.isOwn ? 'rounded-br-sm' : 'rounded-bl-sm'} object-cover cursor-pointer`}
@@ -729,6 +761,7 @@ function MessageBubble({ msg, isAllie, session }: { msg: Message; isAllie: boole
               background: msg.isOwn ? 'var(--ink)' : 'var(--surface-bubble-in)',
               color: msg.isOwn ? 'var(--bg)' : 'var(--ink)',
               border: msg.isOwn ? 'none' : '1px solid var(--border)',
+              wordBreak: 'break-word',
             }}>
             {msg.content}
           </div>
