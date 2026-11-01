@@ -94,7 +94,7 @@ export function PaymentSheet({ conversation, session, onClose, onPaymentSent }: 
     setError('');
     setStep('pending');
     try {
-      let result: { transactionId: string; circleTxId: string; state: string };
+      let result: { transactionId: string; circleTxId: string; state: string; messageId?: string };
       let recipient: string;
 
       if (sendMode === 'address') {
@@ -130,7 +130,7 @@ export function PaymentSheet({ conversation, session, onClose, onPaymentSent }: 
       // Otherwise stay in 'pending' — the DB poll useEffect will resolve it
 
       const paymentMsg: Message = {
-        id: result.transactionId,
+        id: result.messageId ?? result.transactionId,
         conversationId: conversation.id,
         senderId: session.user.id,
         senderName: 'You',

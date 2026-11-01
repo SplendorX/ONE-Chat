@@ -87,7 +87,7 @@ export async function sendUsdc(params: {
   conversationId: string;
   note?: string;
 }) {
-  return post<{ success: boolean; transactionId: string; circleTxId: string; state: string }>(
+  return post<{ success: boolean; transactionId: string; circleTxId: string; state: string; messageId?: string }>(
     '/payment/send',
     params
   );
@@ -99,7 +99,7 @@ export async function sendUsdcToAddress(params: {
   conversationId: string;
   note?: string;
 }) {
-  return post<{ success: boolean; transactionId: string; circleTxId: string; state: string }>(
+  return post<{ success: boolean; transactionId: string; circleTxId: string; state: string; messageId?: string }>(
     '/payment/send-address',
     params
   );

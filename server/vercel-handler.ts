@@ -215,8 +215,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       updated_at: new Date().toISOString(),
     }).eq('id', txDbId);
 
-    // Insert message
-    await params.supabase.from('messages').insert({
+    // Insert message and return its DB id so client can dedup
+    const { data: msgRow } = await params.supabase.from('messages').insert({
       conversation_id: params.conversationId,
       sender_id: params.senderUserId,
       type: 'payment',
@@ -229,9 +229,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         recipientHandle: params.recipientHandle,
         state: finalState,
       },
-    });
+    }).select('id').single();
 
-    return { transactionId: txDbId, circleTxId, state: finalState };
+    return { transactionId: txDbId, circleTxId, state: finalState, messageId: msgRow?.id as string | undefined };
   }
 
   // POST /payment/send  (send to .one handle)
