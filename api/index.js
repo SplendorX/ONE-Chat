@@ -42450,7 +42450,7 @@ async function handler(req, res) {
           return;
         }
         dbWalletId = senderWallet.data.circle_wallet_id;
-        const idempotencyKey = `allie-${user.userId}-${Date.now()}`;
+        const idempotencyKey = randomUUID();
         const balRes = await circle().getWalletTokenBalance({ id: dbWalletId });
         const usdcToken = (balRes.data?.tokenBalances ?? []).find(
           (b) => b.token?.symbol === "USDC" || b.token?.name?.includes("USD Coin")
@@ -42468,7 +42468,7 @@ async function handler(req, res) {
           walletId: dbWalletId,
           tokenId: resolvedTokenId,
           destinationAddress: destAddress,
-          amounts: [amountNum.toFixed(6)],
+          amounts: [String(amountNum)],
           fee: { type: "level", config: { feeLevel: "MEDIUM" } },
           idempotencyKey
         });
@@ -42492,7 +42492,7 @@ async function handler(req, res) {
       } catch (err) {
         const errObj = err;
         const detail = errObj?.response?.data ?? errObj?.message ?? String(err);
-        res.json({ reply: `[debug] ${JSON.stringify(detail)} dest=${destAddress} amt=${amountNum.toFixed(6)} tokenId=${resolvedTokenId} walletId=${dbWalletId}`, usedLlm: false });
+        res.json({ reply: `[debug] ${JSON.stringify(detail)} dest=${destAddress} amt=${amountNum} tokenId=${resolvedTokenId} walletId=${dbWalletId}`, usedLlm: false });
       }
       return;
     }

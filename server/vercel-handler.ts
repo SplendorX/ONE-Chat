@@ -361,7 +361,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           res.json({ reply: "You don't have a wallet set up yet. Go to the You tab and set up your wallet first.", usedLlm: false }); return;
         }
         dbWalletId = senderWallet.data.circle_wallet_id as string;
-        const idempotencyKey = `allie-${user.userId}-${Date.now()}`;
+        const idempotencyKey = randomUUID();
         // Look up token ID from wallet balances — never hardcode
         const balRes = await circle().getWalletTokenBalance({ id: dbWalletId });
         const usdcToken = (balRes.data?.tokenBalances ?? []).find(
@@ -379,7 +379,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           walletId: dbWalletId,
           tokenId: resolvedTokenId,
           destinationAddress: destAddress,
-          amounts: [amountNum.toFixed(6)],
+          amounts: [String(amountNum)],
           fee: { type: 'level', config: { feeLevel: 'MEDIUM' } },
           idempotencyKey,
         });
@@ -405,7 +405,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       } catch (err: unknown) {
         const errObj = err as { message?: string; response?: { data?: unknown }; code?: string };
         const detail = errObj?.response?.data ?? errObj?.message ?? String(err);
-        res.json({ reply: `[debug] ${JSON.stringify(detail)} dest=${destAddress} amt=${amountNum.toFixed(6)} tokenId=${resolvedTokenId} walletId=${dbWalletId}`, usedLlm: false });
+        res.json({ reply: `[debug] ${JSON.stringify(detail)} dest=${destAddress} amt=${amountNum} tokenId=${resolvedTokenId} walletId=${dbWalletId}`, usedLlm: false });
       }
       return;
     }
