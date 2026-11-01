@@ -1,63 +1,93 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <!-- Mask cuts the "1" and three dots out of the gold shape -->
-    <mask id="cut">
-      <!-- White = show gold; Black = cut away (reveal background) -->
-      <rect width="200" height="200" fill="white"/>
-      <!-- "1" numeral: vertical stem -->
-      <rect x="76" y="68" width="16" height="58" rx="5" fill="black"/>
-      <!-- "1" top curve/hook (rounded top-left of the numeral) -->
-      <path d="M 76 68 Q 76 55 88 50 L 94 62 Q 86 65 92 68 Z" fill="black"/>
-      <!-- Three dots -->
-      <circle cx="117" cy="97" r="5.5" fill="black"/>
-      <circle cx="131" cy="97" r="5.5" fill="black"/>
-      <circle cx="145" cy="97" r="5.5" fill="black"/>
+    <!-- Radial gradient: warm gold center → deep gold edge -->
+    <radialGradient id="bg-grad" cx="50%" cy="42%" r="58%">
+      <stop offset="0%" stop-color="#2A2318"/>
+      <stop offset="100%" stop-color="#16110C"/>
+    </radialGradient>
+
+    <!-- Gold shimmer gradient for the ring arc -->
+    <linearGradient id="ring-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E8C87A"/>
+      <stop offset="40%" stop-color="#C4A265"/>
+      <stop offset="100%" stop-color="#8C6E3F"/>
+    </linearGradient>
+
+    <!-- Bubble fill gradient -->
+    <linearGradient id="bubble-grad" x1="20%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%" stop-color="#D4B278"/>
+      <stop offset="100%" stop-color="#B8924F"/>
+    </linearGradient>
+
+    <!-- Subtle inner glow on the background disc -->
+    <radialGradient id="disc-glow" cx="50%" cy="38%" r="52%">
+      <stop offset="0%" stop-color="#3D2F1A" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#16110C" stop-opacity="1"/>
+    </radialGradient>
+
+    <!-- Mask to cut numerals out of the bubble -->
+    <mask id="bubble-mask">
+      <rect width="512" height="512" fill="white"/>
+      <!-- "1" numeral: diagonal top-flag stroke + vertical stem -->
+      <path d="M 212 118 C 196 124 183 137 180 156 L 200 161 C 202 151 210 143 220 139 Z" fill="black"/>
+      <rect x="205" y="136" width="30" height="138" rx="8" fill="black"/>
+      <!-- Three activity dots — slightly larger, better spaced -->
+      <circle cx="295" cy="248" r="14" fill="black"/>
+      <circle cx="335" cy="248" r="14" fill="black"/>
+      <circle cx="375" cy="248" r="14" fill="black"/>
     </mask>
+
+    <!-- Drop shadow filter for the bubble -->
+    <filter id="bubble-shadow" x="-8%" y="-8%" width="116%" height="116%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#000" flood-opacity="0.35"/>
+    </filter>
+
+    <!-- Soft glow behind the ring -->
+    <filter id="ring-glow" x="-15%" y="-15%" width="130%" height="130%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
   </defs>
 
-  <!-- Gold layer: circle ring + speech bubble merged, cutouts applied via mask -->
-  <g fill="#C4A265" mask="url(#cut)">
-    <!-- Circle ring as a thick-stroke open arc (open at bottom-left for the tail) -->
-    <!-- Drawn as filled annulus minus the gap sector, but simpler: use a stroked arc -->
-    <!-- We use a donut approach: outer circle minus inner circle, clipped to the arc extent -->
+  <!-- Dark rounded-square background -->
+  <rect width="512" height="512" rx="108" fill="url(#disc-glow)"/>
 
-    <!-- Full filled circle (will be the ring + bubble together) -->
-    <!-- Outer circle -->
-    <circle cx="100" cy="95" r="68"/>
+  <!-- Subtle inner highlight rim -->
+  <rect width="512" height="512" rx="108" fill="none" stroke="#3A2D1C" stroke-width="2"/>
 
-    <!-- Punch a hole for the ring's inner area EXCEPT where the speech bubble is -->
-    <!-- The speech bubble occupies roughly the left 60% of the circle interior -->
-    <!-- Inner circle cutout (makes the ring) — we'll do this via a second mask layer below -->
-  </g>
-
-  <!--
-    Better approach: draw the open ring as a stroked path + the filled bubble as a path,
-    union them into one gold shape, then apply the cutout mask.
-  -->
-
-  <!-- Reset: draw properly -->
-  <g mask="url(#cut)">
-    <!-- Open circle ring: thick stroke, gap at ~220°–300° (bottom-left, where tail exits) -->
+  <!-- Outer decorative arc ring: open gap at bottom-right, rendered with glow -->
+  <g filter="url(#ring-glow)">
     <path
-      d="M 68 152 A 65 65 0 1 1 145 46"
-      fill="none"
-      stroke="#C4A265"
-      stroke-width="18"
+      d="M 126 374 A 176 176 0 1 1 386 126"
+      stroke="url(#ring-grad)"
+      stroke-width="28"
       stroke-linecap="round"
-    />
-
-    <!-- Speech bubble body: fills the inside-left of the circle -->
-    <!-- Rounded shape with pointed tail at bottom-left -->
-    <path
-      d="M 100 38
-         C 68 38, 44 62, 44 90
-         C 44 115, 60 135, 84 143
-         L 55 168
-         L 88 150
-         C 92 151, 96 152, 100 152
-         C 132 152, 156 128, 156 100
-         C 156 66, 131 38, 100 38 Z"
-      fill="#C4A265"
+      fill="none"
+      opacity="0.55"
     />
   </g>
+
+  <!-- Main gold arc ring: open gap at bottom-right -->
+  <path
+    d="M 126 374 A 176 176 0 1 1 386 126"
+    stroke="url(#ring-grad)"
+    stroke-width="22"
+    stroke-linecap="round"
+    fill="none"
+  />
+
+  <!-- Speech bubble body with numeral+dots cut out -->
+  <path
+    d="M 256 92
+       C 172 92, 108 154, 108 228
+       C 108 291, 148 342, 206 362
+       L 156 420
+       L 210 388
+       C 224 392, 240 394, 256 394
+       C 340 394, 404 332, 404 258
+       C 404 166, 337 92, 256 92 Z"
+    fill="url(#bubble-grad)"
+    mask="url(#bubble-mask)"
+    filter="url(#bubble-shadow)"
+  />
 </svg>
