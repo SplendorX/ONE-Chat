@@ -79,29 +79,29 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
       setLoading(true);
       const { data, error: fetchErr } = await supabase
         .from('messages')
-        .select('id, sender_id, type, content, metadata, created_at, edited_at')
+        .select('id, sender_id, type, content, metadata, created_at, edited_at, profiles(display_name)')
         .eq('conversation_id', conversation.id)
-
         .order('created_at', { ascending: true })
         .limit(100);
       if (fetchErr) console.error('[ConversationView] load error', fetchErr);
 
       if (data) {
-        // eslint-disable-next-line no-console
-        console.log('[ConversationView] loaded', data.length, 'messages for', conversation.id);
-        setMessages(data.map((m) => ({
-          id: m.id as string,
-          conversationId: conversation.id,
-          senderId: m.sender_id as string,
-          senderName: '',
-          type: (m.type as Message['type']) ?? 'text',
-          content: m.content as string ?? '',
-          metadata: m.metadata as Record<string, unknown> ?? undefined,
-          createdAt: new Date(m.created_at as string),
-          isOwn: m.sender_id === session.user.id,
-          deliveryState: 'read',
-          editedAt: m.edited_at ? new Date(m.edited_at as string) : undefined,
-        })));
+        setMessages(data.map((m) => {
+          const profile = m.profiles as { display_name?: string } | null;
+          return {
+            id: m.id as string,
+            conversationId: conversation.id,
+            senderId: m.sender_id as string,
+            senderName: profile?.display_name ?? '',
+            type: (m.type as Message['type']) ?? 'text',
+            content: (m.content as string) ?? '',
+            metadata: (m.metadata as Record<string, unknown>) ?? undefined,
+            createdAt: new Date(m.created_at as string),
+            isOwn: m.sender_id === session.user.id,
+            deliveryState: 'read' as const,
+            editedAt: m.edited_at ? new Date(m.edited_at as string) : undefined,
+          };
+        }));
       }
       setLoading(false);
     }
@@ -149,11 +149,13 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
         };
         setMessages((prev) => {
           if (prev.some((p) => p.id === m.id)) return prev;
+          // Find sender name from already-loaded messages (group chats) or leave blank to fill on next load
+          const knownName = prev.find((p) => p.senderId === m.sender_id)?.senderName ?? '';
           return [...prev, {
             id: m.id,
             conversationId: conversation.id,
             senderId: m.sender_id,
-            senderName: '',
+            senderName: knownName,
             type: (m.type as Message['type']) ?? 'text',
             content: m.content ?? '',
             metadata: m.metadata ?? undefined,
@@ -162,8 +164,19 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
             deliveryState: 'delivered' as const,
           }];
         });
+        // Fetch sender name if not known (first message from this sender in session)
+        void supabase.from('profiles').select('display_name').eq('id', m.sender_id).maybeSingle()
+          .then(({ data: p }) => {
+            if (!p?.display_name) return;
+            setMessages((prev) => prev.map((msg) =>
+              msg.id === m.id ? { ...msg, senderName: p.display_name as string } : msg
+            ));
+          });
       })
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') console.info('[RT] subscribed to', channelName);
+        if (status === 'CHANNEL_ERROR') console.error('[RT] channel error on', channelName);
+      });
     return () => { void supabase.removeChannel(channel); };
   }, [conversation.id, session.user.id, isAllie]);
 
