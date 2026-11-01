@@ -13,7 +13,7 @@ One Chat is a premium messaging application where users can chat, send USDC, req
 
 - Frontend: React 18, Vite, TypeScript, Tailwind CSS
 - Web3: wagmi v2, viem v2, ConnectKit
-- Chain: Arc Testnet (Chain ID: 5042002)
+- Chain: Arc Mainnet (Chain ID: 5042)
 - Token: USDC (6 decimals) — Address: 0x3600000000000000000000000000000000000000
 - Fonts: Space Grotesk (display), DM Sans (body), JetBrains Mono
 - Toasts: Sonner

@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { initiateDeveloperControlledWalletsClient } from '@circle-fin/developer-controlled-wallets';
 import { randomUUID } from 'crypto';
 
-const BLOCKCHAIN = 'ARC-TESTNET';
+const BLOCKCHAIN = 'ARC';
 const RESERVED = ['admin', 'allie', 'onechat', 'support', 'help', 'system', 'root', 'circle', 'arc'];
 const TERMINAL_STATES = ['CONFIRMED', 'COMPLETE', 'SENT', 'FAILED', 'DENIED', 'CANCELLED'];
 

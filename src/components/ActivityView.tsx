@@ -73,9 +73,9 @@ export function ActivityView({ user, session }: ActivityViewProps) {
     void load();
   }, [session]);
 
-  // Explorer URL for tx hash on Arc Testnet (chain ID 5042002)
+  // Explorer URL for tx hash on Arc mainnet (chain ID 5042)
   function explorerUrl(txHash: string) {
-    try { return buildTxExplorerUrl(5042002, txHash); } catch { return null; }
+    try { return buildTxExplorerUrl(5042, txHash); } catch { return null; }
   }
 
   const userId = session.user.id;

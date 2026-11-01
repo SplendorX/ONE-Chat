@@ -173,7 +173,7 @@ export function PaymentReceipt({
                   <div className="space-y-2">
                     {[
                       { label: 'Amount', value: `$${parseFloat(amount).toFixed(6)} ${asset}` },
-                      { label: 'Network', value: 'Arc Testnet' },
+                      { label: 'Network', value: 'Arc' },
                       { label: 'Status', value: statusLabel },
                       transactionId ? { label: 'Tx ID', value: shortId(transactionId), full: transactionId } : null,
                       circleTxId ? { label: 'Circle ID', value: shortId(circleTxId), full: circleTxId } : null,
