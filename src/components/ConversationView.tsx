@@ -4,6 +4,7 @@ import type { Session } from '@supabase/supabase-js';
 import { ArrowLeft, Phone, MoreHorizontal, Send, Paperclip, DollarSign, Check, CheckCheck, Loader2, BellOff, Trash2, Share, Receipt, Settings, Smile } from 'lucide-react';
 import { AllieIcon } from './AllieIcon';
 import { BillSplitMessage } from './BillSplitMessage';
+import { PaymentReceipt } from './PaymentReceipt';
 import { BillSplitSheet } from './BillSplitSheet';
 import { GroupSettingsSheet } from './GroupSettingsSheet';
 import { EmojiPicker } from './EmojiPicker';
@@ -692,35 +693,25 @@ function MessageBubble({ msg, isAllie, session }: { msg: Message; isAllie: boole
     }
   }
 
-  const isPayment = msg.type === 'payment' || msg.type === 'payment_request';
-
-  if (isPayment) {
-    const meta = msg.metadata as { amount?: string; recipientHandle?: string; state?: string } | undefined;
-    const state = meta?.state ?? 'INITIATED';
-    const stateColor = state === 'COMPLETE' ? 'var(--success)' : state === 'FAILED' ? 'var(--danger)' : 'var(--muted)';
+  if (msg.type === 'payment' || msg.type === 'payment_request') {
+    const meta = msg.metadata as {
+      amount?: string; recipientHandle?: string; state?: string;
+      transactionId?: string; circleTxId?: string; asset?: string;
+    } | undefined;
     return (
-      <div className={`flex ${msg.isOwn ? 'justify-end' : 'justify-start'} my-2`}>
-        <div className="rounded-2xl p-4 max-w-xs w-full"
-          style={{ background: msg.isOwn ? 'var(--ink)' : 'var(--surface-muted)', border: '1px solid var(--border)' }}>
-          <div className="text-xs font-medium mb-1" style={{ color: msg.isOwn ? 'var(--subtle)' : 'var(--muted)' }}>
-            {msg.type === 'payment' ? 'Sent USDC' : 'Payment request'}
-          </div>
-          <div className="display text-2xl font-bold tabular-nums" style={{ color: msg.isOwn ? 'var(--bg)' : 'var(--ink)' }}>
-            ${meta?.amount ?? '0'} <span className="text-sm font-medium">USDC</span>
-          </div>
-          {meta?.recipientHandle && (
-            <div className="text-xs mt-1" style={{ color: msg.isOwn ? 'var(--subtle)' : 'var(--muted)' }}>
-              to {meta.recipientHandle}
-            </div>
-          )}
-          <div className="flex items-center gap-1 mt-2">
-            <div className="w-1.5 h-1.5 rounded-full" style={{ background: stateColor }} />
-            <span className="text-xs" style={{ color: msg.isOwn ? 'var(--subtle)' : 'var(--muted)' }}>
-              {state === 'COMPLETE' ? 'Confirmed' : state === 'FAILED' ? 'Failed' : 'Processing…'}
-            </span>
-          </div>
-        </div>
-      </div>
+      <PaymentReceipt
+        isOwn={msg.isOwn}
+        amount={meta?.amount ?? '0'}
+        asset={meta?.asset ?? 'USDC'}
+        recipientHandle={meta?.recipientHandle ?? ''}
+        state={meta?.state ?? 'INITIATED'}
+        note={msg.content ?? undefined}
+        transactionId={meta?.transactionId}
+        circleTxId={meta?.circleTxId}
+        createdAt={msg.createdAt}
+        senderName={msg.senderName}
+        senderAvatar={msg.senderAvatar}
+      />
     );
   }
 
