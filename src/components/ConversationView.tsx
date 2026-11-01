@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Session } from '@supabase/supabase-js';
 import { ArrowLeft, Phone, MoreHorizontal, Send, Paperclip, DollarSign, Check, CheckCheck, Loader2, BellOff, Trash2, Share, Receipt, Settings } from 'lucide-react';
@@ -126,64 +126,53 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
     })();
   }, [conversation.id, conversation.type, isAllie]);
 
-  // Merge new messages into state (dedup by id, replace temp IDs)
-  const mergeMessages = useCallback((rows: typeof messages) => {
-    setMessages((prev) => {
-      const existingIds = new Set(prev.map((m) => m.id));
-      const fresh = rows.filter((m) => !existingIds.has(m.id));
-      if (!fresh.length) return prev;
-      return [...prev, ...fresh].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-    });
-  }, []);
-
-  // Track latest confirmed message timestamp for polling
-  const lastMsgTsRef = useRef<string>(new Date(Date.now() - 60_000).toISOString());
-  // Keep the ref current whenever messages change
-  const stableMessages = useMemo(() => messages, [messages]);
-  useEffect(() => {
-    const confirmed = stableMessages.filter((m) => !m.id.startsWith('temp-') && !m.id.startsWith('local-'));
-    if (!confirmed.length) return;
-    const latest = confirmed.reduce((max, m) => m.createdAt > max ? m.createdAt : max, new Date(0));
-    lastMsgTsRef.current = latest.toISOString();
-  }, [stableMessages]);
-
-  // Poll for new messages every 3 s — reliable fallback when Realtime websocket is unavailable
+  // Poll: load ALL messages for this conv every 3s, merge by id
+  // Simple and reliable — no timestamp math, no join, no Realtime dependency
   useEffect(() => {
     if (isAllie) return;
     let active = true;
 
     async function poll() {
       if (!active) return;
-      const since = lastMsgTsRef.current;
       const { data } = await supabase
         .from('messages')
-        .select('id, sender_id, type, content, metadata, created_at, profiles(display_name)')
+        .select('id, sender_id, type, content, metadata, created_at')
         .eq('conversation_id', conversation.id)
-        .gt('created_at', since)
         .order('created_at', { ascending: true })
-        .limit(50);
-      if (!data?.length || !active) return;
-      const rows = data.map((m) => {
-        const profile = m.profiles as { display_name?: string } | null;
-        return {
-          id: m.id as string,
-          conversationId: conversation.id,
-          senderId: m.sender_id as string,
-          senderName: profile?.display_name ?? '',
-          type: (m.type as Message['type']) ?? 'text',
-          content: (m.content as string) ?? '',
-          metadata: (m.metadata as Record<string, unknown>) ?? undefined,
-          createdAt: new Date(m.created_at as string),
-          isOwn: (m.sender_id as string) === session.user.id,
-          deliveryState: 'read' as const,
-        };
+        .limit(100);
+      if (!active) return;
+      // eslint-disable-next-line no-console
+      console.log('[poll]', conversation.id, 'got', data?.length ?? 0, 'msgs');
+      if (!data?.length) return;
+      const rows: Message[] = data.map((m) => ({
+        id: m.id as string,
+        conversationId: conversation.id,
+        senderId: m.sender_id as string,
+        senderName: '',
+        type: (m.type as Message['type']) ?? 'text',
+        content: (m.content as string) ?? '',
+        metadata: (m.metadata as Record<string, unknown>) ?? undefined,
+        createdAt: new Date(m.created_at as string),
+        isOwn: (m.sender_id as string) === session.user.id,
+        deliveryState: 'read' as const,
+      }));
+      // Merge: preserve senderName from existing messages, add new ones
+      setMessages((prev) => {
+        const byId = new Map(prev.map((m) => [m.id, m]));
+        let changed = false;
+        for (const r of rows) {
+          if (!byId.has(r.id)) { byId.set(r.id, r); changed = true; }
+        }
+        if (!changed) return prev;
+        return Array.from(byId.values()).sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
       });
-      mergeMessages(rows);
     }
 
+    // Run immediately then every 3s
+    void poll();
     const interval = setInterval(() => { void poll(); }, 3000);
     return () => { active = false; clearInterval(interval); };
-  }, [conversation.id, session.user.id, isAllie, mergeMessages]);
+  }, [conversation.id, session.user.id, isAllie]);
 
   // Supabase Realtime subscription — instant delivery when websocket works
   useEffect(() => {
@@ -217,7 +206,7 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
           isOwn: m.sender_id === session.user.id,
           deliveryState: 'delivered' as const,
         };
-        mergeMessages([row]);
+        setMessages((prev) => prev.some((p) => p.id === row.id) ? prev : [...prev, row]);
         // Backfill sender name
         void supabase.from('profiles').select('display_name').eq('id', m.sender_id).maybeSingle()
           .then(({ data: p }) => {
@@ -229,7 +218,11 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
       })
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
-  }, [conversation.id, session.user.id, isAllie, mergeMessages]);
+  }, [
+	conversation.id,
+	session.user.id,
+	isAllie
+]);
 
   const sendMessage = useCallback(async () => {
     const content = text.trim();
