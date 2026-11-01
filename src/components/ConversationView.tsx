@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Session } from '@supabase/supabase-js';
 import { ArrowLeft, Phone, MoreHorizontal, Send, Paperclip, DollarSign, Check, CheckCheck, Loader2, BellOff, Trash2, Share, Receipt, Settings } from 'lucide-react';
@@ -126,11 +126,69 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
     })();
   }, [conversation.id, conversation.type, isAllie]);
 
-  // Supabase Realtime subscription
+  // Merge new messages into state (dedup by id, replace temp IDs)
+  const mergeMessages = useCallback((rows: typeof messages) => {
+    setMessages((prev) => {
+      const existingIds = new Set(prev.map((m) => m.id));
+      const fresh = rows.filter((m) => !existingIds.has(m.id));
+      if (!fresh.length) return prev;
+      return [...prev, ...fresh].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    });
+  }, []);
+
+  // Track latest confirmed message timestamp for polling
+  const lastMsgTsRef = useRef<string>(new Date(Date.now() - 60_000).toISOString());
+  // Keep the ref current whenever messages change
+  const stableMessages = useMemo(() => messages, [messages]);
+  useEffect(() => {
+    const confirmed = stableMessages.filter((m) => !m.id.startsWith('temp-') && !m.id.startsWith('local-'));
+    if (!confirmed.length) return;
+    const latest = confirmed.reduce((max, m) => m.createdAt > max ? m.createdAt : max, new Date(0));
+    lastMsgTsRef.current = latest.toISOString();
+  }, [stableMessages]);
+
+  // Poll for new messages every 3 s — reliable fallback when Realtime websocket is unavailable
+  useEffect(() => {
+    if (isAllie) return;
+    let active = true;
+
+    async function poll() {
+      if (!active) return;
+      const since = lastMsgTsRef.current;
+      const { data } = await supabase
+        .from('messages')
+        .select('id, sender_id, type, content, metadata, created_at, profiles(display_name)')
+        .eq('conversation_id', conversation.id)
+        .gt('created_at', since)
+        .order('created_at', { ascending: true })
+        .limit(50);
+      if (!data?.length || !active) return;
+      const rows = data.map((m) => {
+        const profile = m.profiles as { display_name?: string } | null;
+        return {
+          id: m.id as string,
+          conversationId: conversation.id,
+          senderId: m.sender_id as string,
+          senderName: profile?.display_name ?? '',
+          type: (m.type as Message['type']) ?? 'text',
+          content: (m.content as string) ?? '',
+          metadata: (m.metadata as Record<string, unknown>) ?? undefined,
+          createdAt: new Date(m.created_at as string),
+          isOwn: (m.sender_id as string) === session.user.id,
+          deliveryState: 'read' as const,
+        };
+      });
+      mergeMessages(rows);
+    }
+
+    const interval = setInterval(() => { void poll(); }, 3000);
+    return () => { active = false; clearInterval(interval); };
+  }, [conversation.id, session.user.id, isAllie, mergeMessages]);
+
+  // Supabase Realtime subscription — instant delivery when websocket works
   useEffect(() => {
     if (isAllie) return;
     const channelName = `conv-${conversation.id}`;
-    // Remove any stale channel with the same name before subscribing (handles StrictMode double-mount)
     const stale = supabase.getChannels().find((c) => c.topic === `realtime:${channelName}`);
     if (stale) void supabase.removeChannel(stale);
 
@@ -145,26 +203,22 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
         const m = payload.new as {
           id: string; sender_id: string; type: string;
           content: string | null; metadata: Record<string, unknown> | null;
-          created_at: string; edited_at: string | null;
+          created_at: string;
         };
-        setMessages((prev) => {
-          if (prev.some((p) => p.id === m.id)) return prev;
-          // Find sender name from already-loaded messages (group chats) or leave blank to fill on next load
-          const knownName = prev.find((p) => p.senderId === m.sender_id)?.senderName ?? '';
-          return [...prev, {
-            id: m.id,
-            conversationId: conversation.id,
-            senderId: m.sender_id,
-            senderName: knownName,
-            type: (m.type as Message['type']) ?? 'text',
-            content: m.content ?? '',
-            metadata: m.metadata ?? undefined,
-            createdAt: new Date(m.created_at),
-            isOwn: m.sender_id === session.user.id,
-            deliveryState: 'delivered' as const,
-          }];
-        });
-        // Fetch sender name if not known (first message from this sender in session)
+        const row = {
+          id: m.id,
+          conversationId: conversation.id,
+          senderId: m.sender_id,
+          senderName: '',
+          type: (m.type as Message['type']) ?? 'text',
+          content: m.content ?? '',
+          metadata: m.metadata ?? undefined,
+          createdAt: new Date(m.created_at),
+          isOwn: m.sender_id === session.user.id,
+          deliveryState: 'delivered' as const,
+        };
+        mergeMessages([row]);
+        // Backfill sender name
         void supabase.from('profiles').select('display_name').eq('id', m.sender_id).maybeSingle()
           .then(({ data: p }) => {
             if (!p?.display_name) return;
@@ -173,12 +227,9 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
             ));
           });
       })
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') console.info('[RT] subscribed to', channelName);
-        if (status === 'CHANNEL_ERROR') console.error('[RT] channel error on', channelName);
-      });
+      .subscribe();
     return () => { void supabase.removeChannel(channel); };
-  }, [conversation.id, session.user.id, isAllie]);
+  }, [conversation.id, session.user.id, isAllie, mergeMessages]);
 
   const sendMessage = useCallback(async () => {
     const content = text.trim();

@@ -994,3 +994,5 @@
 {"level":"debug","message":"[vite] hot updated: /src/components/AppShell.tsx","timestamp":1793570093817}
 {"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793570093817}
 {"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793570869621}
+{"level":"debug","message":"[vite] hot updated: /src/components/ConversationView.tsx","timestamp":1793571179247}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793571179247}
