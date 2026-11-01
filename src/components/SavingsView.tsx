@@ -77,11 +77,14 @@ export function SavingsView({ user, session }: SavingsViewProps) {
     const amt = parseFloat(depositAmt);
     if (isNaN(amt) || amt <= 0) return;
     setDepositLoading(true);
+    setError('');
     try {
       await depositToGoal(showDeposit.id, depositAmt.trim());
       setShowDeposit(null); setDepositAmt('');
       await load();
-    } catch (e) { alert(e instanceof Error ? e.message : 'Deposit failed'); }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Deposit failed. Check your balance and try again.');
+    }
     finally { setDepositLoading(false); }
   }
 
@@ -258,14 +261,18 @@ export function SavingsView({ user, session }: SavingsViewProps) {
               <div style={{ marginBottom: 16, fontSize: 13, color: 'var(--muted)' }}>
                 Progress: ${parseFloat(showDeposit.current_amount).toFixed(2)} / ${parseFloat(showDeposit.target_amount).toFixed(2)}
               </div>
-              <div style={{ position: 'relative', marginBottom: 12 }}>
+              {error && <div style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12, padding: '8px 12px', background: 'var(--danger-bg)', borderRadius: 8 }}>{error}</div>}
+              <div style={{ position: 'relative', marginBottom: 8 }}>
                 <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontSize: 16 }}>$</span>
-                <input value={depositAmt} onChange={(e) => setDepositAmt(e.target.value)} placeholder="Amount to add" type="number" min="0" autoFocus
+                <input value={depositAmt} onChange={(e) => setDepositAmt(e.target.value)} placeholder="Amount to deposit" type="number" min="0" autoFocus
                   style={{ width: '100%', padding: '14px 14px 14px 28px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface-input)', color: 'var(--ink)', fontSize: 15, boxSizing: 'border-box' }} />
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <ChevronRight size={11} />USDC will be sent onchain to your savings wallet
               </div>
               <motion.button whileTap={{ scale: 0.97 }} onClick={() => void handleDeposit()} disabled={depositLoading}
                 style={{ width: '100%', padding: '14px', background: 'var(--gold)', color: 'var(--bg)', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: 15, cursor: 'pointer', opacity: depositLoading ? 0.7 : 1 }}>
-                {depositLoading ? 'Saving…' : 'Record deposit'}
+                {depositLoading ? 'Sending USDC…' : 'Deposit USDC'}
               </motion.button>
             </motion.div>
           </motion.div>

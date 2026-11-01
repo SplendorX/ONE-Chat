@@ -1,4 +1,7 @@
 -- Savings goals table
+-- Add wallet_type column to wallets table for savings sub-wallets
+alter table public.wallets add column if not exists wallet_type text default 'main';
+
 create table if not exists public.savings_goals (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -7,6 +10,7 @@ create table if not exists public.savings_goals (
   current_amount numeric(18,6) not null default 0,
   deadline date,
   is_completed boolean not null default false,
+  savings_wallet_id text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

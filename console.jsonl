@@ -929,3 +929,7 @@
 {"level":"debug","message":"[vite] connected.","timestamp":1793566608740}
 {"level":"debug","message":"[vite] connected.","timestamp":1793567052620}
 {"level":"debug","message":"[vite] connected.","timestamp":1793567174204}
+{"level":"debug","message":"[vite] hot updated: /src/components/SavingsView.tsx","timestamp":1793568064199}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793568064200}
+{"level":"debug","message":"[vite] hot updated: /src/components/SavingsView.tsx","timestamp":1793568074711}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793568074711}

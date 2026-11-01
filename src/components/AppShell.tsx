@@ -296,45 +296,58 @@ export function AppShell({ session, theme, onThemeToggle, onSignOut }: AppShellP
           </div>
         </div>
 
-        {/* Middle pane */}
-        <div className="w-80 xl:w-96 flex-shrink-0 flex flex-col border-r overflow-hidden" style={{ borderColor: 'var(--border)' }}>
-          <AnimatePresence mode="wait">
-            <motion.div key={tab} className="flex flex-col overflow-hidden" style={{ height: '100%', minHeight: 0 }}
-              initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }}
-              transition={{ duration: 0.15, ease: 'easeOut' }}>
-              {tab === 'chats' && <InboxView conversations={conversations} activeConvId={activeConv?.id} session={session} onSelect={setActiveConv} onConversationCreated={(conv) => { if (!conversations.find((c) => c.id === conv.id)) setConversations((p) => [conv, ...p]); setActiveConv(conv); }} />}
-              {tab === 'contacts' && <ContactsView session={session} onStartChat={(conv) => { setTab('chats'); setActiveConv(conv); }} />}
-              {tab === 'activity' && <ActivityView user={profile} session={session} />}
-              {tab === 'channels' && <ChannelsView user={profile} session={session} />}
-              {tab === 'savings' && <SavingsView user={profile} session={session} />}
-              {tab === 'you' && <ProfileView user={profile} session={session} theme={theme} onThemeToggle={onThemeToggle} onSignOut={onSignOut} onAvatarUpdate={(url) => setProfile((p) => p ? { ...p, avatarUrl: url } : p)} onProUpgrade={() => setProfile((p) => p ? { ...p, isPro: true } : p)} />}
-            </motion.div>
-          </AnimatePresence>
-        </div>
-
-        {/* Right pane */}
-        <div className="flex-1 overflow-hidden">
-          <AnimatePresence mode="wait">
-            {activeConv ? (
-              <motion.div key={activeConv.id} className="h-full flex flex-col overflow-hidden"
-                initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
-                transition={{ duration: 0.18, ease: 'easeOut' }}>
-                <ErrorBoundary key={activeConv.id}>
-                  <ConversationView conversation={activeConv} user={profile} session={session} onBack={() => setActiveConv(null)} />
-                </ErrorBoundary>
+        {/* Middle pane — narrow for chats, full-width for everything else */}
+        {tab === 'chats' ? (
+          <>
+            <div className="w-80 xl:w-96 flex-shrink-0 flex flex-col border-r overflow-hidden" style={{ borderColor: 'var(--border)' }}>
+              <AnimatePresence mode="wait">
+                <motion.div key={tab} className="flex flex-col overflow-hidden" style={{ height: '100%', minHeight: 0 }}
+                  initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }}
+                  transition={{ duration: 0.15, ease: 'easeOut' }}>
+                  <InboxView conversations={conversations} activeConvId={activeConv?.id} session={session} onSelect={setActiveConv} onConversationCreated={(conv) => { if (!conversations.find((c) => c.id === conv.id)) setConversations((p) => [conv, ...p]); setActiveConv(conv); }} />
+                </motion.div>
+              </AnimatePresence>
+            </div>
+            {/* Right pane — conversation or empty */}
+            <div className="flex-1 overflow-hidden">
+              <AnimatePresence mode="wait">
+                {activeConv ? (
+                  <motion.div key={activeConv.id} className="h-full flex flex-col overflow-hidden"
+                    initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
+                    transition={{ duration: 0.18, ease: 'easeOut' }}>
+                    <ErrorBoundary key={activeConv.id}>
+                      <ConversationView conversation={activeConv} user={profile} session={session} onBack={() => setActiveConv(null)} />
+                    </ErrorBoundary>
+                  </motion.div>
+                ) : (
+                  <motion.div key="empty" className="h-full flex flex-col items-center justify-center gap-3"
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }} style={{ background: 'var(--bg)' }}>
+                    <div className="w-14 h-14 rounded-3xl flex items-center justify-center" style={{ background: 'var(--surface-muted)' }}>
+                      <MessageCircle size={24} style={{ color: 'var(--muted)' }} />
+                    </div>
+                    <p className="text-sm" style={{ color: 'var(--muted)' }}>Select a conversation to begin</p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </>
+        ) : (
+          /* Full-width pane for non-chat tabs */
+          <div className="flex-1 overflow-hidden">
+            <AnimatePresence mode="wait">
+              <motion.div key={tab} className="flex flex-col overflow-hidden" style={{ height: '100%', minHeight: 0 }}
+                initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}>
+                {tab === 'contacts' && <ContactsView session={session} onStartChat={(conv) => { setTab('chats'); setActiveConv(conv); }} />}
+                {tab === 'activity' && <ActivityView user={profile} session={session} />}
+                {tab === 'channels' && <ChannelsView user={profile} session={session} />}
+                {tab === 'savings' && <SavingsView user={profile} session={session} />}
+                {tab === 'you' && <ProfileView user={profile} session={session} theme={theme} onThemeToggle={onThemeToggle} onSignOut={onSignOut} onAvatarUpdate={(url) => setProfile((p) => p ? { ...p, avatarUrl: url } : p)} onProUpgrade={() => setProfile((p) => p ? { ...p, isPro: true } : p)} />}
               </motion.div>
-            ) : (
-              <motion.div key="empty" className="h-full flex flex-col items-center justify-center gap-3"
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }} style={{ background: 'var(--bg)' }}>
-                <div className="w-14 h-14 rounded-3xl flex items-center justify-center" style={{ background: 'var(--surface-muted)' }}>
-                  <MessageCircle size={24} style={{ color: 'var(--muted)' }} />
-                </div>
-                <p className="text-sm" style={{ color: 'var(--muted)' }}>Select a conversation to begin</p>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+            </AnimatePresence>
+          </div>
+        )}
       </div>
 
       {/* Mobile */}

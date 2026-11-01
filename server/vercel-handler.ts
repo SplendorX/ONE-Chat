@@ -580,19 +580,63 @@ Help users: send USDC by .one handle or wallet address, understand transactions,
     return;
   }
 
-  // POST /wallet/savings/:id/deposit — move USDC into a goal (tracked only, no actual lock)
+  // POST /wallet/savings/:id/deposit — send USDC onchain to savings wallet + update goal
   if (path.match(/^\/wallet\/savings\/[^/]+\/deposit$/) && req.method === 'POST') {
     const user = await getUser(req, res); if (!user) return;
     const goalId = path.split('/')[3];
     const { amount } = req.body as { amount?: string };
     if (!amount) { res.status(400).json({ error: 'amount required' }); return; }
-    const { data: goal } = await db().from('savings_goals').select('current_amount, target_amount').eq('id', goalId).eq('user_id', user.userId).maybeSingle();
+    const amountNum = parseFloat(amount);
+    if (isNaN(amountNum) || amountNum <= 0) { res.status(400).json({ error: 'Invalid amount' }); return; }
+    // Load goal
+    const { data: goal } = await db().from('savings_goals').select('current_amount, target_amount, savings_wallet_id').eq('id', goalId).eq('user_id', user.userId).maybeSingle();
     if (!goal) { res.status(404).json({ error: 'Goal not found' }); return; }
-    const newAmount = (parseFloat(goal.current_amount as string) + parseFloat(amount)).toFixed(6);
+    // Load sender wallet
+    const { data: senderWalletRow } = await db().from('wallets').select('circle_wallet_id').eq('user_id', user.userId).maybeSingle();
+    if (!senderWalletRow?.circle_wallet_id) { res.status(400).json({ error: 'No wallet found. Set up your wallet first.' }); return; }
+    const senderWalletId = senderWalletRow.circle_wallet_id as string;
+    // Get or create savings sub-wallet for this user
+    let savingsWalletId = (goal as { savings_wallet_id?: string }).savings_wallet_id ?? null;
+    let savingsAddress = '';
+    if (!savingsWalletId) {
+      // Check if user already has a savings wallet
+      const { data: existingSavings } = await db().from('wallets').select('circle_wallet_id, address').eq('user_id', user.userId).eq('wallet_type', 'savings').maybeSingle();
+      if (existingSavings?.circle_wallet_id) {
+        savingsWalletId = existingSavings.circle_wallet_id as string;
+        savingsAddress = existingSavings.address as string;
+      } else {
+        // Create a new savings sub-wallet
+        const { data: wsRow } = await db().from('wallets').select('circle_wallet_set_id').eq('user_id', user.userId).maybeSingle();
+        const walletSetId = (wsRow as { circle_wallet_set_id?: string } | null)?.circle_wallet_set_id;
+        if (!walletSetId) { res.status(400).json({ error: 'Wallet set not found' }); return; }
+        const wRes = await circle().createWallets({ accountType: 'EOA', blockchains: [BLOCKCHAIN], count: 1, walletSetId });
+        const newWallet = (wRes.data as { wallets?: { id?: string; address?: string }[] })?.wallets?.[0];
+        if (!newWallet?.id || !newWallet?.address) { res.status(500).json({ error: 'Failed to create savings wallet' }); return; }
+        savingsWalletId = newWallet.id;
+        savingsAddress = newWallet.address;
+        await db().from('wallets').insert({ user_id: user.userId, circle_wallet_id: savingsWalletId, circle_wallet_set_id: walletSetId, address: savingsAddress, blockchain: BLOCKCHAIN, status: 'LIVE', wallet_type: 'savings' });
+      }
+      // Store savings_wallet_id on goal for future deposits
+      await db().from('savings_goals').update({ savings_wallet_id: savingsWalletId }).eq('id', goalId);
+    } else {
+      const { data: sw } = await db().from('wallets').select('address').eq('circle_wallet_id', savingsWalletId).maybeSingle();
+      savingsAddress = (sw as { address?: string } | null)?.address ?? '';
+    }
+    if (!savingsAddress) { res.status(500).json({ error: 'Could not resolve savings wallet address' }); return; }
+    // Execute onchain transfer: sender wallet → savings wallet
+    const balRes = await circle().getWalletTokenBalance({ id: senderWalletId });
+    const usdcToken = (balRes.data?.tokenBalances ?? []).find((b: { token?: { symbol?: string; id?: string; name?: string } }) => b.token?.symbol === 'USDC' || b.token?.name?.includes('USD Coin'));
+    if (!usdcToken?.token?.id) { res.status(400).json({ error: 'No USDC in wallet' }); return; }
+    const txRes = await circle().createTransaction({ walletId: senderWalletId, tokenId: usdcToken.token.id as string, destinationAddress: savingsAddress, amounts: [String(amountNum)], fee: { type: 'level', config: { feeLevel: 'MEDIUM' } }, idempotencyKey: randomUUID() });
+    const circleTxId = (txRes.data as { id?: string })?.id;
+    if (!circleTxId) throw new Error('No transaction ID from Circle');
+    const { state: finalState } = await pollCircleUntilTerminal(circleTxId, 8000);
+    if (!['CONFIRMED', 'SENT', 'COMPLETE'].includes(finalState)) { res.status(500).json({ error: `Transfer failed with state: ${finalState}` }); return; }
+    // Update goal progress
+    const newAmount = (parseFloat(goal.current_amount as string) + amountNum).toFixed(6);
     const isCompleted = parseFloat(newAmount) >= parseFloat(goal.target_amount as string);
-    const { error } = await db().from('savings_goals').update({ current_amount: newAmount, is_completed: isCompleted }).eq('id', goalId);
-    if (error) { res.status(500).json({ error: error.message }); return; }
-    res.json({ newAmount, isCompleted });
+    await db().from('savings_goals').update({ current_amount: newAmount, is_completed: isCompleted }).eq('id', goalId);
+    res.json({ newAmount, isCompleted, txId: circleTxId });
     return;
   }
 
