@@ -122,8 +122,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (path === '/wallet/provision' && req.method === 'POST') {
     const user = await getUser(req, res); if (!user) return;
     const supabase = db();
-    const { data: existing } = await supabase.from('wallets').select('*').eq('user_id', user.userId).maybeSingle();
-    if (existing) { res.json({ wallet: existing }); return; }
+    const { data: existing } = await supabase.from('wallets').select('*').eq('user_id', user.userId).eq('wallet_type', 'main').maybeSingle();
+    // If existing wallet is on a different blockchain (e.g. old testnet row), delete and re-provision
+    if (existing) {
+      if ((existing.blockchain as string) === BLOCKCHAIN) {
+        res.json({ wallet: existing }); return;
+      }
+      // Wrong network — remove old row and fall through to create a mainnet wallet
+      await supabase.from('wallets').delete().eq('id', existing.id as string);
+    }
     try {
       const sdk = circle();
       const wsRes = await sdk.createWalletSet({ name: `one-chat-user-${user.userId}` });
@@ -149,7 +156,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // GET /wallet/balance
   if (path === '/wallet/balance') {
     const user = await getUser(req, res); if (!user) return;
-    const { data: wallet } = await db().from('wallets').select('circle_wallet_id, address').eq('user_id', user.userId).maybeSingle();
+    const { data: wallet } = await db().from('wallets').select('circle_wallet_id, address').eq('user_id', user.userId).eq('blockchain', BLOCKCHAIN).maybeSingle();
     if (!wallet) { res.json({ balance: '0', address: null }); return; }
     try {
       const balRes = await circle().getWalletTokenBalance({ id: wallet.circle_wallet_id });
@@ -247,9 +254,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { data: identity } = await supabase.from('one_identities').select('user_id, handle').eq('handle', handle).maybeSingle();
       if (!identity) { res.status(404).json({ error: `${handle}.one not found` }); return; }
       if (identity.user_id === user.userId) { res.status(400).json({ error: 'Cannot send to yourself' }); return; }
-      const { data: senderWallet } = await supabase.from('wallets').select('circle_wallet_id').eq('user_id', user.userId).maybeSingle();
-      if (!senderWallet) { res.status(400).json({ error: 'Sender wallet not provisioned' }); return; }
-      const { data: recipientWallet } = await supabase.from('wallets').select('address').eq('user_id', identity.user_id).maybeSingle();
+      const { data: senderWallet } = await supabase.from('wallets').select('circle_wallet_id').eq('user_id', user.userId).eq('blockchain', BLOCKCHAIN).maybeSingle();
+      if (!senderWallet) { res.status(400).json({ error: 'Your wallet is not set up for Arc mainnet. Go to the You tab to set up your wallet.' }); return; }
+      const { data: recipientWallet } = await supabase.from('wallets').select('address').eq('user_id', identity.user_id).eq('blockchain', BLOCKCHAIN).maybeSingle();
       if (!recipientWallet) { res.status(400).json({ error: 'Recipient has no wallet' }); return; }
       const result = await executePayment({
         supabase, senderWalletId: senderWallet.circle_wallet_id,
@@ -273,7 +280,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (isNaN(amountNum) || amountNum <= 0) { res.status(400).json({ error: 'Invalid amount' }); return; }
     try {
       const supabase = db();
-      const { data: senderWallet } = await supabase.from('wallets').select('circle_wallet_id').eq('user_id', user.userId).maybeSingle();
+      const { data: senderWallet } = await supabase.from('wallets').select('circle_wallet_id').eq('user_id', user.userId).eq('blockchain', BLOCKCHAIN).maybeSingle();
       if (!senderWallet) { res.status(400).json({ error: 'Sender wallet not provisioned' }); return; }
       const result = await executePayment({
         supabase, senderWalletId: senderWallet.circle_wallet_id,
@@ -346,7 +353,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) {
           res.json({ reply: `I couldn't find anyone with the handle "${rawRecipient}.one". Double-check the handle and try again.`, usedLlm: false }); return;
         }
-        const { data: wallet } = await db().from('wallets').select('address').eq('user_id', identity.user_id).maybeSingle();
+        const { data: wallet } = await db().from('wallets').select('address').eq('user_id', identity.user_id).eq('blockchain', BLOCKCHAIN).maybeSingle();
         if (!wallet?.address) {
           res.json({ reply: `Found ${rawRecipient}.one but they haven't set up a wallet yet.`, usedLlm: false }); return;
         }
@@ -357,7 +364,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       let dbWalletId = '';
       let resolvedTokenId = '';
       try {
-        const senderWallet = await db().from('wallets').select('circle_wallet_id').eq('user_id', user.userId).maybeSingle();
+        const senderWallet = await db().from('wallets').select('circle_wallet_id').eq('user_id', user.userId).eq('blockchain', BLOCKCHAIN).maybeSingle();
         if (!senderWallet.data?.circle_wallet_id) {
           res.json({ reply: "You don't have a wallet set up yet. Go to the You tab and set up your wallet first.", usedLlm: false }); return;
         }
@@ -431,7 +438,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // --- Balance check: return actual balance ---
     if (/\bbalance\b|\bhow much\b.*\bhave\b|\bwhat.*\bbalance\b|\bmy balance\b/i.test(clean)) {
       try {
-        const { data: w } = await db().from('wallets').select('circle_wallet_id').eq('user_id', user.userId).maybeSingle();
+        const { data: w } = await db().from('wallets').select('circle_wallet_id').eq('user_id', user.userId).eq('blockchain', BLOCKCHAIN).maybeSingle();
         if (w?.circle_wallet_id) {
           const balRes = await circle().getWalletTokenBalance({ id: w.circle_wallet_id as string });
           const usdc = (balRes.data?.tokenBalances ?? []).find((b: { token?: { symbol?: string }; amount?: string }) => b.token?.symbol === 'USDC');
@@ -468,7 +475,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           res.json({ reply: `$${total.toFixed(2)} split ${names.length} ways: ${list}.\n\nSay "split $${total.toFixed(2)} between ${names.join(', ')} and send" to execute all payments now.`, usedLlm: false }); return;
         }
         // Execute all payments in parallel
-        const { data: senderWalletRow } = await db().from('wallets').select('circle_wallet_id').eq('user_id', user.userId).maybeSingle();
+        const { data: senderWalletRow } = await db().from('wallets').select('circle_wallet_id').eq('user_id', user.userId).eq('blockchain', BLOCKCHAIN).maybeSingle();
         if (!senderWalletRow?.circle_wallet_id) {
           res.json({ reply: "You don't have a wallet set up yet. Go to the You tab first.", usedLlm: false }); return;
         }
@@ -481,7 +488,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           try {
             const { data: identity } = await db().from('one_identities').select('user_id').eq('handle', handle).maybeSingle();
             if (!identity) { results.push(`❌ ${handle}.one — not found`); continue; }
-            const { data: recipWallet } = await db().from('wallets').select('address').eq('user_id', identity.user_id).maybeSingle();
+            const { data: recipWallet } = await db().from('wallets').select('address').eq('user_id', identity.user_id).eq('blockchain', BLOCKCHAIN).maybeSingle();
             if (!recipWallet?.address) { results.push(`❌ ${handle}.one — no wallet`); continue; }
             const txRes = await circle().createTransaction({ walletId: senderWalletId, tokenId: usdcToken.token.id as string, destinationAddress: recipWallet.address as string, amounts: [String(share)], fee: { type: 'level', config: { feeLevel: 'MEDIUM' } }, idempotencyKey: randomUUID() });
             const circleTxId = (txRes.data as { id?: string })?.id ?? '';
@@ -524,7 +531,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // --- LLM path: Pro users only ---
     try {
-      const { data: wallet } = await db().from('wallets').select('circle_wallet_id, address').eq('user_id', user.userId).maybeSingle();
+      const { data: wallet } = await db().from('wallets').select('circle_wallet_id, address').eq('user_id', user.userId).eq('blockchain', BLOCKCHAIN).maybeSingle();
       let balanceContext = '';
       if (wallet) {
         try {
@@ -563,7 +570,7 @@ Help users: send USDC by .one handle or wallet address, understand transactions,
     const { data: profile } = await db().from('profiles').select('is_pro').eq('id', user.userId).maybeSingle();
     if (profile?.is_pro) { res.json({ success: true, alreadyPro: true, message: "You're already a ONE Pro member!" }); return; }
     // Get sender wallet
-    const { data: wallet } = await db().from('wallets').select('circle_wallet_id, address').eq('user_id', user.userId).maybeSingle();
+    const { data: wallet } = await db().from('wallets').select('circle_wallet_id, address').eq('user_id', user.userId).eq('blockchain', BLOCKCHAIN).maybeSingle();
     if (!wallet?.circle_wallet_id) { res.status(400).json({ error: 'Wallet not set up. Go to the You tab first.' }); return; }
     // Charge 5 USDC — send to app treasury address (owner's wallet)
     const treasuryAddress = process.env.VITE_TREASURY_ADDRESS;
@@ -638,7 +645,7 @@ Help users: send USDC by .one handle or wallet address, understand transactions,
     const { data: goal } = await db().from('savings_goals').select('current_amount, target_amount, savings_wallet_id').eq('id', goalId).eq('user_id', user.userId).maybeSingle();
     if (!goal) { res.status(404).json({ error: 'Goal not found' }); return; }
     // Load sender wallet
-    const { data: senderWalletRow } = await db().from('wallets').select('circle_wallet_id').eq('user_id', user.userId).maybeSingle();
+    const { data: senderWalletRow } = await db().from('wallets').select('circle_wallet_id').eq('user_id', user.userId).eq('blockchain', BLOCKCHAIN).maybeSingle();
     if (!senderWalletRow?.circle_wallet_id) { res.status(400).json({ error: 'No wallet found. Set up your wallet first.' }); return; }
     const senderWalletId = senderWalletRow.circle_wallet_id as string;
     // Get or create savings sub-wallet for this user
@@ -774,7 +781,7 @@ Help users: send USDC by .one handle or wallet address, understand transactions,
     if (!contrib) { res.status(404).json({ error: 'You are not part of this bill split' }); return; }
     if ((contrib.state as string) !== 'PENDING') { res.json({ success: true, alreadyPaid: true }); return; }
     // Get payer wallet
-    const { data: payerWallet } = await db().from('wallets').select('circle_wallet_id').eq('user_id', user.userId).maybeSingle();
+    const { data: payerWallet } = await db().from('wallets').select('circle_wallet_id').eq('user_id', user.userId).eq('blockchain', BLOCKCHAIN).maybeSingle();
     if (!payerWallet?.circle_wallet_id) { res.status(400).json({ error: 'Wallet not set up' }); return; }
     // Get creator wallet address
     const { data: creatorWallet } = await db().from('wallets').select('address').eq('user_id', split.created_by).maybeSingle();
