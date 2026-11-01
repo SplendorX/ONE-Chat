@@ -42611,7 +42611,7 @@ Help users: send USDC by .one handle or wallet address, understand transactions,
       return;
     }
     try {
-      const idempotencyKey = `pro-sub-${user.userId}-${Date.now()}`;
+      const idempotencyKey = randomUUID();
       const subWalletId = wallet.circle_wallet_id;
       const subBalRes = await circle().getWalletTokenBalance({ id: subWalletId });
       const subUsdc = (subBalRes.data?.tokenBalances ?? []).find(
@@ -42629,7 +42629,7 @@ Help users: send USDC by .one handle or wallet address, understand transactions,
         fee: { type: "level", config: { feeLevel: "MEDIUM" } },
         idempotencyKey
       });
-      const circleTxId = txRes.data?.transaction?.id ?? "";
+      const circleTxId = txRes.data?.id ?? "";
       const { state: finalState } = await pollCircleUntilTerminal(circleTxId, 8e3);
       if (!["CONFIRMED", "SENT", "COMPLETE"].includes(finalState)) {
         res.status(402).json({ error: `Payment ${finalState}. Please check your USDC balance and try again.` });
@@ -42639,7 +42639,8 @@ Help users: send USDC by .one handle or wallet address, understand transactions,
       await db().from("profiles").update({ is_pro: true, pro_expires_at: expiresAt }).eq("id", user.userId);
       res.json({ success: true, message: "Welcome to ONE Pro! You now have full ALLIE AI access.", expiresAt });
     } catch (err) {
-      res.status(500).json({ error: err instanceof Error ? err.message : "Subscription failed" });
+      const detail = err?.response?.data ?? (err instanceof Error ? err.message : "Subscription failed");
+      res.status(500).json({ error: typeof detail === "string" ? detail : JSON.stringify(detail) });
     }
     return;
   }
