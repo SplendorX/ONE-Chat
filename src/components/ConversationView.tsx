@@ -254,7 +254,7 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
       setOtherTyping(true);
       const newHistory: { role: 'user' | 'assistant'; content: string }[] = [...allieHistory, { role: 'user', content }];
       try {
-        const { reply, requiresPro } = await chatAllie(content, allieHistory, user.isPro);
+        const { reply, requiresPro } = await chatAllie(content, allieHistory, user.isPro, conversation.id);
         setAllieHistory([...newHistory, { role: 'assistant', content: reply }]);
         setOtherTyping(false);
         setMessages((prev) => [...prev, {
@@ -307,7 +307,7 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
       await supabase.from('messages').insert({ conversation_id: conversation.id, sender_id: session.user.id, type: 'text', content });
       setOtherTyping(true);
       try {
-        const { reply } = await chatAllie(allieQuery, [], user.isPro);
+        const { reply } = await chatAllie(allieQuery, [], user.isPro, conversation.id);
         setOtherTyping(false);
         // Post ALLIE's reply as a special message in this conversation
         const allieReply: Message = {
@@ -696,7 +696,9 @@ function MessageBubble({ msg, isAllie, session }: { msg: Message; isAllie: boole
   if (msg.type === 'payment' || msg.type === 'payment_request') {
     const meta = msg.metadata as {
       amount?: string; recipientHandle?: string; state?: string;
-      transactionId?: string; circleTxId?: string; asset?: string;
+      transactionId?: string;
+      circleTxId?: string; circleTransactionId?: string; // server may use either key
+      asset?: string;
     } | undefined;
     return (
       <PaymentReceipt
@@ -707,7 +709,7 @@ function MessageBubble({ msg, isAllie, session }: { msg: Message; isAllie: boole
         state={meta?.state ?? 'INITIATED'}
         note={msg.content ?? undefined}
         transactionId={meta?.transactionId}
-        circleTxId={meta?.circleTxId}
+        circleTxId={meta?.circleTxId ?? meta?.circleTransactionId}
         createdAt={msg.createdAt}
         senderName={msg.senderName}
         senderAvatar={msg.senderAvatar}

@@ -223,7 +223,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       content: params.note,
       metadata: {
         transactionId: txDbId,
-        circleTransactionId: circleTxId,
+        circleTxId: circleTxId,
         amount: params.amount,
         asset: 'USDC',
         recipientHandle: params.recipientHandle,
@@ -300,10 +300,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // POST /chat/allie
   if (path === '/chat/allie' && req.method === 'POST') {
     const user = await getUser(req, res); if (!user) return;
-    const { message, history, isPro } = req.body as {
+    const { message, history, isPro, conversationId: allieConvId } = req.body as {
       message?: string;
       history?: { role: 'user' | 'assistant'; content: string }[];
       isPro?: boolean;
+      conversationId?: string;
     };
     if (!message) { res.status(400).json({ error: 'message required' }); return; }
 
@@ -385,14 +386,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
         const circleTxId = (txRes.data as { id?: string; transaction?: { id?: string } })?.id ?? (txRes.data as { transaction?: { id?: string } })?.transaction?.id ?? '';
         const { state: finalState } = await pollCircleUntilTerminal(circleTxId, 8000);
-        await db().from('transactions').insert({
+        const { data: allieTxRow } = await db().from('transactions').insert({
           sender_id: user.userId,
           amount,
           asset: 'USDC',
           state: finalState,
           circle_transaction_id: circleTxId,
           idempotency_key: idempotencyKey,
-        });
+        }).select('id').single();
+        // Insert a payment receipt message so the recipient sees it
+        if (allieConvId) {
+          await db().from('messages').insert({
+            conversation_id: allieConvId,
+            sender_id: user.userId,
+            type: 'payment',
+            content: null,
+            metadata: {
+              transactionId: allieTxRow?.id,
+              circleTxId,
+              amount,
+              asset: 'USDC',
+              recipientHandle: resolvedHandle,
+              state: finalState,
+            },
+          });
+        }
         const succeeded = ['CONFIRMED', 'SENT', 'COMPLETE'].includes(finalState);
         res.json({
           reply: succeeded
