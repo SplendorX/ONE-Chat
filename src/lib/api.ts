@@ -18,7 +18,7 @@ async function authHeaders(): Promise<Record<string, string>> {
 // In production VITE_API_URL points directly at the backend (e.g. same origin on port 3001).
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, '') ?? '/api';
 
-async function get<T>(path: string): Promise<T> {
+export async function get<T>(path: string): Promise<T> {
   const headers = await authHeaders();
   const res = await fetch(`${API_BASE}${path}`, { headers });
   if (!res.ok) {
@@ -28,7 +28,7 @@ async function get<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-async function post<T>(path: string, body: unknown): Promise<T> {
+export async function post<T>(path: string, body: unknown): Promise<T> {
   const headers = await authHeaders();
   const res = await fetch(`${API_BASE}${path}`, { method: 'POST', headers, body: JSON.stringify(body) });
   if (!res.ok) {

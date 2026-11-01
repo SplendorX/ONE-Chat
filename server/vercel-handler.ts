@@ -436,15 +436,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         res.json({ reply: `$${total.toFixed(2)} split ${people} ways = $${share} each. I can send each person their share — just give me their .one handles and I'll send them one by one.`, usedLlm: false }); return;
       }
     }
-    // Split with explicit names: "split 30 between alice, bob, carol"
+    // Split with explicit names: "split 30 between alice, bob, carol [and send]"
     const splitNamesMatch = clean.match(/split\s+\$?([\d.]+)(?:\s+usdc)?\s+(?:between|among|with)\s+(.+)/i);
     if (splitNamesMatch) {
       const total = parseFloat(splitNamesMatch[1]);
-      const names = splitNamesMatch[2].split(/,\s*|\s+and\s+/).map((n) => n.trim()).filter(Boolean);
+      const rawNames = splitNamesMatch[2].replace(/\s+(and\s+)?send(\s+now)?.*$/i, '').trim();
+      const names = rawNames.split(/,\s*|\s+and\s+/).map((n) => n.trim().replace(/^@/, '').replace(/\.one$/, '')).filter((n) => n && !/^(now|them|everyone|all)$/i.test(n));
+      const shouldSend = /\bsend\b|\bpay\b|\bdo it\b|\bnow\b/i.test(clean);
       if (!isNaN(total) && names.length > 0) {
-        const share = (total / names.length).toFixed(2);
-        const list = names.map((n) => `${n}: $${share}`).join(', ');
-        res.json({ reply: `$${total.toFixed(2)} split ${names.length} ways: ${list}. Want me to send these now? Say "send ${share} USDC to [handle]" for each person.`, usedLlm: false }); return;
+        const share = parseFloat((total / names.length).toFixed(6));
+        if (!shouldSend) {
+          const list = names.map((n) => `${n}.one: $${share.toFixed(2)}`).join(', ');
+          res.json({ reply: `$${total.toFixed(2)} split ${names.length} ways: ${list}.\n\nSay "split $${total.toFixed(2)} between ${names.join(', ')} and send" to execute all payments now.`, usedLlm: false }); return;
+        }
+        // Execute all payments in parallel
+        const { data: senderWalletRow } = await db().from('wallets').select('circle_wallet_id').eq('user_id', user.userId).maybeSingle();
+        if (!senderWalletRow?.circle_wallet_id) {
+          res.json({ reply: "You don't have a wallet set up yet. Go to the You tab first.", usedLlm: false }); return;
+        }
+        const senderWalletId = senderWalletRow.circle_wallet_id as string;
+        const balRes = await circle().getWalletTokenBalance({ id: senderWalletId });
+        const usdcToken = (balRes.data?.tokenBalances ?? []).find((b: { token?: { symbol?: string; id?: string } }) => b.token?.symbol === 'USDC');
+        if (!usdcToken?.token?.id) { res.json({ reply: "I couldn't find USDC in your wallet. Make sure it's funded first.", usedLlm: false }); return; }
+        const results: string[] = [];
+        for (const handle of names) {
+          try {
+            const { data: identity } = await db().from('one_identities').select('user_id').eq('handle', handle).maybeSingle();
+            if (!identity) { results.push(`❌ ${handle}.one — not found`); continue; }
+            const { data: recipWallet } = await db().from('wallets').select('address').eq('user_id', identity.user_id).maybeSingle();
+            if (!recipWallet?.address) { results.push(`❌ ${handle}.one — no wallet`); continue; }
+            const txRes = await circle().createTransaction({ walletId: senderWalletId, tokenId: usdcToken.token.id as string, destinationAddress: recipWallet.address as string, amounts: [String(share)], fee: { type: 'level', config: { feeLevel: 'MEDIUM' } }, idempotencyKey: randomUUID() });
+            const circleTxId = (txRes.data as { id?: string })?.id ?? '';
+            const { state } = await pollCircleUntilTerminal(circleTxId, 8000);
+            results.push(['CONFIRMED', 'SENT', 'COMPLETE'].includes(state) ? `✅ ${handle}.one — $${share.toFixed(2)} sent` : `⚠️ ${handle}.one — ${state}`);
+          } catch (e) { results.push(`❌ ${handle}.one — ${e instanceof Error ? e.message : 'error'}`); }
+        }
+        res.json({ reply: `Split $${total.toFixed(2)} ${names.length} ways:\n\n${results.join('\n')}`, usedLlm: false, splitExecuted: true }); return;
       }
     }
 
@@ -681,6 +708,94 @@ Help users: send USDC by .one handle or wallet address, understand transactions,
       });
     }
     res.json({ success: true, requestId: (req_ as { id: string })?.id });
+    return;
+  }
+
+  // POST /payment/bill-split — create a group bill split request
+  if (path === '/payment/bill-split' && req.method === 'POST') {
+    const user = await getUser(req, res); if (!user) return;
+    const { conversationId, title, totalAmount, perPersonAmount, memberIds } = req.body as {
+      conversationId?: string; title?: string; totalAmount?: string; perPersonAmount?: string; memberIds?: string[];
+    };
+    if (!conversationId || !title || !totalAmount || !perPersonAmount || !memberIds?.length) {
+      res.status(400).json({ error: 'conversationId, title, totalAmount, perPersonAmount, memberIds required' }); return;
+    }
+    // Create bill_split record
+    const { data: split, error: splitErr } = await db().from('bill_splits').insert({
+      conversation_id: conversationId, created_by: user.userId, title,
+      total_amount: totalAmount, per_person_amount: perPersonAmount,
+    }).select().single();
+    if (splitErr) { res.status(500).json({ error: splitErr.message }); return; }
+    const splitId = (split as { id: string }).id;
+    // Create contribution rows for each member (excluding creator)
+    const contribs = memberIds.filter((id) => id !== user.userId).map((memberId) => ({
+      split_id: splitId, user_id: memberId, amount: perPersonAmount, state: 'PENDING',
+    }));
+    if (contribs.length) await db().from('bill_split_contributions').insert(contribs);
+    // Post a bill_split message to the group
+    const { data: creatorIdentity } = await db().from('one_identities').select('handle').eq('user_id', user.userId).maybeSingle();
+    await db().from('messages').insert({
+      conversation_id: conversationId, sender_id: user.userId,
+      type: 'bill_split',
+      content: `${creatorIdentity?.handle ?? 'Someone'} created a bill split: ${title}`,
+      metadata: { splitId, title, totalAmount, perPersonAmount, memberCount: memberIds.length },
+    });
+    res.json({ success: true, splitId });
+    return;
+  }
+
+  // POST /payment/bill-split/:id/pay — pay your share of a bill split
+  if (path.match(/^\/payment\/bill-split\/[^/]+\/pay$/) && req.method === 'POST') {
+    const user = await getUser(req, res); if (!user) return;
+    const splitId = path.split('/')[3];
+    // Load the split
+    const { data: split } = await db().from('bill_splits').select('created_by, per_person_amount, conversation_id, title').eq('id', splitId).maybeSingle();
+    if (!split) { res.status(404).json({ error: 'Bill split not found' }); return; }
+    // Check contribution exists and is pending
+    const { data: contrib } = await db().from('bill_split_contributions').select('id, state').eq('split_id', splitId).eq('user_id', user.userId).maybeSingle();
+    if (!contrib) { res.status(404).json({ error: 'You are not part of this bill split' }); return; }
+    if ((contrib.state as string) !== 'PENDING') { res.json({ success: true, alreadyPaid: true }); return; }
+    // Get payer wallet
+    const { data: payerWallet } = await db().from('wallets').select('circle_wallet_id').eq('user_id', user.userId).maybeSingle();
+    if (!payerWallet?.circle_wallet_id) { res.status(400).json({ error: 'Wallet not set up' }); return; }
+    // Get creator wallet address
+    const { data: creatorWallet } = await db().from('wallets').select('address').eq('user_id', split.created_by).maybeSingle();
+    if (!creatorWallet?.address) { res.status(404).json({ error: 'Creator has no wallet' }); return; }
+    // Execute payment
+    const balRes = await circle().getWalletTokenBalance({ id: payerWallet.circle_wallet_id as string });
+    const usdcToken = (balRes.data?.tokenBalances ?? []).find((b: { token?: { symbol?: string; id?: string } }) => b.token?.symbol === 'USDC');
+    if (!usdcToken?.token?.id) { res.status(400).json({ error: 'No USDC in wallet' }); return; }
+    try {
+      const txRes = await circle().createTransaction({
+        walletId: payerWallet.circle_wallet_id as string, tokenId: usdcToken.token.id as string,
+        destinationAddress: creatorWallet.address as string, amounts: [String(split.per_person_amount)],
+        fee: { type: 'level', config: { feeLevel: 'MEDIUM' } }, idempotencyKey: randomUUID(),
+      });
+      const circleTxId = (txRes.data as { id?: string })?.id ?? '';
+      const { state } = await pollCircleUntilTerminal(circleTxId, 8000);
+      if (!['CONFIRMED', 'SENT', 'COMPLETE'].includes(state)) { res.status(500).json({ error: `Payment ${state}` }); return; }
+      // Mark contribution as paid
+      await db().from('bill_split_contributions').update({ state: 'PAID', circle_tx_id: circleTxId }).eq('id', contrib.id);
+      // Post a message confirming payment
+      const { data: payerIdentity } = await db().from('one_identities').select('handle').eq('user_id', user.userId).maybeSingle();
+      await db().from('messages').insert({
+        conversation_id: split.conversation_id, sender_id: user.userId, type: 'text',
+        content: `✅ I paid my share ($${parseFloat(split.per_person_amount as string).toFixed(2)} USDC) for "${split.title}"`,
+      });
+      res.json({ success: true, state, txId: circleTxId, payerHandle: payerIdentity?.handle });
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : 'Payment failed' });
+    }
+    return;
+  }
+
+  // GET /payment/bill-split/:id — get bill split status
+  if (path.match(/^\/payment\/bill-split\/[^/]+$/) && req.method === 'GET') {
+    const user = await getUser(req, res); if (!user) return;
+    const splitId = path.split('/')[3];
+    const { data: split } = await db().from('bill_splits').select('*, bill_split_contributions(user_id, state, amount)').eq('id', splitId).maybeSingle();
+    if (!split) { res.status(404).json({ error: 'Not found' }); return; }
+    res.json({ split });
     return;
   }
 

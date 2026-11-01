@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Session } from '@supabase/supabase-js';
-import { ArrowLeft, Phone, MoreHorizontal, Send, Paperclip, DollarSign, Check, CheckCheck, Loader2, BellOff, Trash2, Share } from 'lucide-react';
+import { ArrowLeft, Phone, MoreHorizontal, Send, Paperclip, DollarSign, Check, CheckCheck, Loader2, BellOff, Trash2, Share, Receipt } from 'lucide-react';
 import { AllieIcon } from './AllieIcon';
+import { BillSplitMessage } from './BillSplitMessage';
+import { BillSplitSheet } from './BillSplitSheet';
 import type { Conversation, Message, User } from '../types';
 import { supabase } from '../lib/supabase';
 import { formatDate, formatTimestamp } from '../lib/utils';
@@ -55,6 +57,8 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
   const [otherTyping, setOtherTyping] = useState(false);
   const [allieHistory, setAllieHistory] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
   const [showMenu, setShowMenu] = useState(false);
+  const [showBillSplit, setShowBillSplit] = useState(false);
+  const [groupMembers, setGroupMembers] = useState<{ userId: string; handle: string; displayName: string }[]>([]);
   const [muted, setMuted] = useState(false);
   const attachRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -100,6 +104,24 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
     }
     void loadMessages();
   }, [conversation.id, session.user.id, isAllie]);
+
+  // Load group members for bill split
+  useEffect(() => {
+    if (isAllie || conversation.type !== 'group') return;
+    void (async () => {
+      const { data } = await supabase
+        .from('conversation_members')
+        .select('user_id, profiles(display_name, avatar_url), one_identities(handle)')
+        .eq('conversation_id', conversation.id);
+      if (data) {
+        setGroupMembers(data.map((row) => {
+          const p = row.profiles as { display_name?: string } | null;
+          const o = row.one_identities as { handle?: string } | null;
+          return { userId: row.user_id as string, handle: o?.handle ?? '', displayName: p?.display_name ?? 'Unknown' };
+        }));
+      }
+    })();
+  }, [conversation.id, conversation.type, isAllie]);
 
   // Supabase Realtime subscription
   useEffect(() => {
@@ -414,7 +436,7 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
                 initial={{ opacity: 0, y: 6, scale: 0.97 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ duration: 0.18, ease: 'easeOut' }}>
-                <MessageBubble msg={msg} isAllie={isAllie} />
+                <MessageBubble msg={msg} isAllie={isAllie} session={session} />
                 {Boolean((msg.metadata as Record<string, unknown> | null | undefined)?.requiresPro) && (
                   <div className="flex justify-start pl-10 mt-1 mb-2">
                     <button onClick={() => setShowProUpgrade(true)}
@@ -461,6 +483,16 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
             title="Send USDC">
             <DollarSign size={15} />
           </button>
+
+          {conversation.type === 'group' && (
+            <button
+              onClick={() => setShowBillSplit(true)}
+              className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer transition-all"
+              style={{ background: 'var(--surface-muted)', color: 'var(--muted)', border: '1px solid var(--border)' }}
+              title="Split bill">
+              <Receipt size={15} />
+            </button>
+          )}
 
           <button
             onClick={() => attachRef.current?.click()}
@@ -526,17 +558,43 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
       {showProUpgrade && (
         <ProUpgradeModal
           onClose={() => setShowProUpgrade(false)}
-          onUpgraded={() => {
-            // Refresh will pick up is_pro from DB on next load
-            window.location.reload();
-          }}
+          onUpgraded={() => { window.location.reload(); }}
+        />
+      )}
+
+      {/* Bill split sheet */}
+      {showBillSplit && (
+        <BillSplitSheet
+          conversation={conversation}
+          session={session}
+          members={groupMembers}
+          onClose={() => setShowBillSplit(false)}
+          onCreated={() => setShowBillSplit(false)}
         />
       )}
     </div>
   );
 }
 
-function MessageBubble({ msg, isAllie }: { msg: Message; isAllie: boolean }) {
+function MessageBubble({ msg, isAllie, session }: { msg: Message; isAllie: boolean; session: import('@supabase/supabase-js').Session }) {
+  if (msg.type === 'bill_split') {
+    const meta = msg.metadata as { splitId?: string; title?: string; totalAmount?: string; perPersonAmount?: string; memberCount?: number } | undefined;
+    if (meta?.splitId) {
+      return (
+        <div className={`flex ${msg.isOwn ? 'justify-end' : 'justify-start'} my-2`}>
+          <BillSplitMessage
+            splitId={meta.splitId}
+            title={meta.title ?? 'Bill split'}
+            totalAmount={meta.totalAmount ?? '0'}
+            perPersonAmount={meta.perPersonAmount ?? '0'}
+            memberCount={meta.memberCount ?? 2}
+            session={session}
+          />
+        </div>
+      );
+    }
+  }
+
   const isPayment = msg.type === 'payment' || msg.type === 'payment_request';
 
   if (isPayment) {

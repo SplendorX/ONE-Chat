@@ -42524,11 +42524,54 @@ async function handler(req, res) {
     const splitNamesMatch = clean.match(/split\s+\$?([\d.]+)(?:\s+usdc)?\s+(?:between|among|with)\s+(.+)/i);
     if (splitNamesMatch) {
       const total = parseFloat(splitNamesMatch[1]);
-      const names = splitNamesMatch[2].split(/,\s*|\s+and\s+/).map((n) => n.trim()).filter(Boolean);
+      const rawNames = splitNamesMatch[2].replace(/\s+(and\s+)?send(\s+now)?.*$/i, "").trim();
+      const names = rawNames.split(/,\s*|\s+and\s+/).map((n) => n.trim().replace(/^@/, "").replace(/\.one$/, "")).filter((n) => n && !/^(now|them|everyone|all)$/i.test(n));
+      const shouldSend = /\bsend\b|\bpay\b|\bdo it\b|\bnow\b/i.test(clean);
       if (!isNaN(total) && names.length > 0) {
-        const share = (total / names.length).toFixed(2);
-        const list = names.map((n) => `${n}: $${share}`).join(", ");
-        res.json({ reply: `$${total.toFixed(2)} split ${names.length} ways: ${list}. Want me to send these now? Say "send ${share} USDC to [handle]" for each person.`, usedLlm: false });
+        const share = parseFloat((total / names.length).toFixed(6));
+        if (!shouldSend) {
+          const list = names.map((n) => `${n}.one: $${share.toFixed(2)}`).join(", ");
+          res.json({ reply: `$${total.toFixed(2)} split ${names.length} ways: ${list}.
+
+Say "split $${total.toFixed(2)} between ${names.join(", ")} and send" to execute all payments now.`, usedLlm: false });
+          return;
+        }
+        const { data: senderWalletRow } = await db().from("wallets").select("circle_wallet_id").eq("user_id", user.userId).maybeSingle();
+        if (!senderWalletRow?.circle_wallet_id) {
+          res.json({ reply: "You don't have a wallet set up yet. Go to the You tab first.", usedLlm: false });
+          return;
+        }
+        const senderWalletId = senderWalletRow.circle_wallet_id;
+        const balRes = await circle().getWalletTokenBalance({ id: senderWalletId });
+        const usdcToken = (balRes.data?.tokenBalances ?? []).find((b) => b.token?.symbol === "USDC");
+        if (!usdcToken?.token?.id) {
+          res.json({ reply: "I couldn't find USDC in your wallet. Make sure it's funded first.", usedLlm: false });
+          return;
+        }
+        const results = [];
+        for (const handle of names) {
+          try {
+            const { data: identity } = await db().from("one_identities").select("user_id").eq("handle", handle).maybeSingle();
+            if (!identity) {
+              results.push(`\u274C ${handle}.one \u2014 not found`);
+              continue;
+            }
+            const { data: recipWallet } = await db().from("wallets").select("address").eq("user_id", identity.user_id).maybeSingle();
+            if (!recipWallet?.address) {
+              results.push(`\u274C ${handle}.one \u2014 no wallet`);
+              continue;
+            }
+            const txRes = await circle().createTransaction({ walletId: senderWalletId, tokenId: usdcToken.token.id, destinationAddress: recipWallet.address, amounts: [String(share)], fee: { type: "level", config: { feeLevel: "MEDIUM" } }, idempotencyKey: randomUUID() });
+            const circleTxId = txRes.data?.id ?? "";
+            const { state } = await pollCircleUntilTerminal(circleTxId, 8e3);
+            results.push(["CONFIRMED", "SENT", "COMPLETE"].includes(state) ? `\u2705 ${handle}.one \u2014 $${share.toFixed(2)} sent` : `\u26A0\uFE0F ${handle}.one \u2014 ${state}`);
+          } catch (e) {
+            results.push(`\u274C ${handle}.one \u2014 ${e instanceof Error ? e.message : "error"}`);
+          }
+        }
+        res.json({ reply: `Split $${total.toFixed(2)} ${names.length} ways:
+
+${results.join("\n")}`, usedLlm: false, splitExecuted: true });
         return;
       }
     }
@@ -42804,6 +42847,119 @@ Help users: send USDC by .one handle or wallet address, understand transactions,
       });
     }
     res.json({ success: true, requestId: req_?.id });
+    return;
+  }
+  if (path === "/payment/bill-split" && req.method === "POST") {
+    const user = await getUser(req, res);
+    if (!user) return;
+    const { conversationId, title, totalAmount, perPersonAmount, memberIds } = req.body;
+    if (!conversationId || !title || !totalAmount || !perPersonAmount || !memberIds?.length) {
+      res.status(400).json({ error: "conversationId, title, totalAmount, perPersonAmount, memberIds required" });
+      return;
+    }
+    const { data: split, error: splitErr } = await db().from("bill_splits").insert({
+      conversation_id: conversationId,
+      created_by: user.userId,
+      title,
+      total_amount: totalAmount,
+      per_person_amount: perPersonAmount
+    }).select().single();
+    if (splitErr) {
+      res.status(500).json({ error: splitErr.message });
+      return;
+    }
+    const splitId = split.id;
+    const contribs = memberIds.filter((id) => id !== user.userId).map((memberId) => ({
+      split_id: splitId,
+      user_id: memberId,
+      amount: perPersonAmount,
+      state: "PENDING"
+    }));
+    if (contribs.length) await db().from("bill_split_contributions").insert(contribs);
+    const { data: creatorIdentity } = await db().from("one_identities").select("handle").eq("user_id", user.userId).maybeSingle();
+    await db().from("messages").insert({
+      conversation_id: conversationId,
+      sender_id: user.userId,
+      type: "bill_split",
+      content: `${creatorIdentity?.handle ?? "Someone"} created a bill split: ${title}`,
+      metadata: { splitId, title, totalAmount, perPersonAmount, memberCount: memberIds.length }
+    });
+    res.json({ success: true, splitId });
+    return;
+  }
+  if (path.match(/^\/payment\/bill-split\/[^/]+\/pay$/) && req.method === "POST") {
+    const user = await getUser(req, res);
+    if (!user) return;
+    const splitId = path.split("/")[3];
+    const { data: split } = await db().from("bill_splits").select("created_by, per_person_amount, conversation_id, title").eq("id", splitId).maybeSingle();
+    if (!split) {
+      res.status(404).json({ error: "Bill split not found" });
+      return;
+    }
+    const { data: contrib } = await db().from("bill_split_contributions").select("id, state").eq("split_id", splitId).eq("user_id", user.userId).maybeSingle();
+    if (!contrib) {
+      res.status(404).json({ error: "You are not part of this bill split" });
+      return;
+    }
+    if (contrib.state !== "PENDING") {
+      res.json({ success: true, alreadyPaid: true });
+      return;
+    }
+    const { data: payerWallet } = await db().from("wallets").select("circle_wallet_id").eq("user_id", user.userId).maybeSingle();
+    if (!payerWallet?.circle_wallet_id) {
+      res.status(400).json({ error: "Wallet not set up" });
+      return;
+    }
+    const { data: creatorWallet } = await db().from("wallets").select("address").eq("user_id", split.created_by).maybeSingle();
+    if (!creatorWallet?.address) {
+      res.status(404).json({ error: "Creator has no wallet" });
+      return;
+    }
+    const balRes = await circle().getWalletTokenBalance({ id: payerWallet.circle_wallet_id });
+    const usdcToken = (balRes.data?.tokenBalances ?? []).find((b) => b.token?.symbol === "USDC");
+    if (!usdcToken?.token?.id) {
+      res.status(400).json({ error: "No USDC in wallet" });
+      return;
+    }
+    try {
+      const txRes = await circle().createTransaction({
+        walletId: payerWallet.circle_wallet_id,
+        tokenId: usdcToken.token.id,
+        destinationAddress: creatorWallet.address,
+        amounts: [String(split.per_person_amount)],
+        fee: { type: "level", config: { feeLevel: "MEDIUM" } },
+        idempotencyKey: randomUUID()
+      });
+      const circleTxId = txRes.data?.id ?? "";
+      const { state } = await pollCircleUntilTerminal(circleTxId, 8e3);
+      if (!["CONFIRMED", "SENT", "COMPLETE"].includes(state)) {
+        res.status(500).json({ error: `Payment ${state}` });
+        return;
+      }
+      await db().from("bill_split_contributions").update({ state: "PAID", circle_tx_id: circleTxId }).eq("id", contrib.id);
+      const { data: payerIdentity } = await db().from("one_identities").select("handle").eq("user_id", user.userId).maybeSingle();
+      await db().from("messages").insert({
+        conversation_id: split.conversation_id,
+        sender_id: user.userId,
+        type: "text",
+        content: `\u2705 I paid my share ($${parseFloat(split.per_person_amount).toFixed(2)} USDC) for "${split.title}"`
+      });
+      res.json({ success: true, state, txId: circleTxId, payerHandle: payerIdentity?.handle });
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : "Payment failed" });
+    }
+    return;
+  }
+  if (path.match(/^\/payment\/bill-split\/[^/]+$/) && req.method === "GET") {
+    const user = await getUser(req, res);
+    if (!user) return;
+    const splitId = path.split("/")[3];
+    const { data: split } = await db().from("bill_splits").select("*, bill_split_contributions(user_id, state, amount)").eq("id", splitId).maybeSingle();
+    if (!split) {
+      res.status(404).json({ error: "Not found" });
+      return;
+    }
+    res.json({ split });
     return;
   }
   res.status(404).json({ error: `Not found: ${path}` });
