@@ -359,11 +359,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           res.json({ reply: "You don't have a wallet set up yet. Go to the You tab and set up your wallet first.", usedLlm: false }); return;
         }
         const idempotencyKey = `allie-${user.userId}-${Date.now()}`;
+        // Look up token ID from wallet balances — never hardcode
+        const walletId = senderWallet.data.circle_wallet_id as string;
+        const balRes = await circle().getWalletTokenBalance({ id: walletId });
+        const usdcToken = (balRes.data?.tokenBalances ?? []).find(
+          (b: { token?: { symbol?: string; id?: string; name?: string } }) =>
+            b.token?.symbol === 'USDC' || b.token?.name?.includes('USD Coin')
+        );
+        if (!usdcToken?.token?.id) {
+          res.json({ reply: "I couldn't find USDC in your wallet. Make sure your wallet is funded.", usedLlm: false }); return;
+        }
         const txRes = await circle().createTransaction({
-          walletId: senderWallet.data.circle_wallet_id as string,
-          tokenId: process.env.USDC_TOKEN_ID ?? '36b6931a-873a-56a8-8a27-b706b17104ee',
+          walletId,
+          tokenId: usdcToken.token.id as string,
           destinationAddress: destAddress,
-          amounts: [amount],
+          amounts: [String(amountNum)],
           fee: { type: 'level', config: { feeLevel: 'MEDIUM' } },
           idempotencyKey,
         });
@@ -508,9 +518,16 @@ Help users: send USDC by .one handle or wallet address, understand transactions,
     if (!treasuryAddress) { res.status(500).json({ error: 'Subscription not configured' }); return; }
     try {
       const idempotencyKey = `pro-sub-${user.userId}-${Date.now()}`;
+      const subWalletId = wallet.circle_wallet_id as string;
+      const subBalRes = await circle().getWalletTokenBalance({ id: subWalletId });
+      const subUsdc = (subBalRes.data?.tokenBalances ?? []).find(
+        (b: { token?: { symbol?: string; id?: string; name?: string } }) =>
+          b.token?.symbol === 'USDC' || b.token?.name?.includes('USD Coin')
+      );
+      if (!subUsdc?.token?.id) { res.status(400).json({ error: 'No USDC in wallet. Please fund your wallet first.' }); return; }
       const txRes = await circle().createTransaction({
-        walletId: wallet.circle_wallet_id as string,
-        tokenId: process.env.USDC_TOKEN_ID ?? '36b6931a-873a-56a8-8a27-b706b17104ee',
+        walletId: subWalletId,
+        tokenId: subUsdc.token.id as string,
         destinationAddress: treasuryAddress,
         amounts: ['5'],
         fee: { type: 'level', config: { feeLevel: 'MEDIUM' } },

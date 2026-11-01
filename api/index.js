@@ -42448,11 +42448,20 @@ async function handler(req, res) {
           return;
         }
         const idempotencyKey = `allie-${user.userId}-${Date.now()}`;
+        const walletId = senderWallet.data.circle_wallet_id;
+        const balRes = await circle().getWalletTokenBalance({ id: walletId });
+        const usdcToken = (balRes.data?.tokenBalances ?? []).find(
+          (b) => b.token?.symbol === "USDC" || b.token?.name?.includes("USD Coin")
+        );
+        if (!usdcToken?.token?.id) {
+          res.json({ reply: "I couldn't find USDC in your wallet. Make sure your wallet is funded.", usedLlm: false });
+          return;
+        }
         const txRes = await circle().createTransaction({
-          walletId: senderWallet.data.circle_wallet_id,
-          tokenId: process.env.USDC_TOKEN_ID ?? "36b6931a-873a-56a8-8a27-b706b17104ee",
+          walletId,
+          tokenId: usdcToken.token.id,
           destinationAddress: destAddress,
-          amounts: [amount],
+          amounts: [String(amountNum)],
           fee: { type: "level", config: { feeLevel: "MEDIUM" } },
           idempotencyKey
         });
@@ -42595,9 +42604,18 @@ Help users: send USDC by .one handle or wallet address, understand transactions,
     }
     try {
       const idempotencyKey = `pro-sub-${user.userId}-${Date.now()}`;
+      const subWalletId = wallet.circle_wallet_id;
+      const subBalRes = await circle().getWalletTokenBalance({ id: subWalletId });
+      const subUsdc = (subBalRes.data?.tokenBalances ?? []).find(
+        (b) => b.token?.symbol === "USDC" || b.token?.name?.includes("USD Coin")
+      );
+      if (!subUsdc?.token?.id) {
+        res.status(400).json({ error: "No USDC in wallet. Please fund your wallet first." });
+        return;
+      }
       const txRes = await circle().createTransaction({
-        walletId: wallet.circle_wallet_id,
-        tokenId: process.env.USDC_TOKEN_ID ?? "36b6931a-873a-56a8-8a27-b706b17104ee",
+        walletId: subWalletId,
+        tokenId: subUsdc.token.id,
         destinationAddress: treasuryAddress,
         amounts: ["5"],
         fee: { type: "level", config: { feeLevel: "MEDIUM" } },

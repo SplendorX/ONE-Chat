@@ -915,3 +915,13 @@
 {"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793460955879}
 {"level":"debug","message":"[vite] hot updated: /src/components/GlobalSearch.tsx","timestamp":1793460958787}
 {"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793460958787}
+{"level":"debug","message":"[vite] connected.","timestamp":1793462087079}
+{"level":"debug","message":"[vite] connected.","timestamp":1793462087781}
+{"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1793462645768}
+{"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1793462645769}
+{"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1793465110742}
+{"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1793465110936}
+{"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1793466920186}
+{"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1793466920189}
+{"level":"debug","message":"[vite] connected.","timestamp":1793469671123}
+{"level":"debug","message":"[vite] connected.","timestamp":1793566299391}
