@@ -369,6 +369,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!usdcToken?.token?.id) {
           res.json({ reply: "I couldn't find USDC in your wallet. Make sure your wallet is funded.", usedLlm: false }); return;
         }
+        if (!destAddress) {
+          res.json({ reply: `I couldn't find a wallet for "${rawRecipient}". Make sure they have a ONE Chat account and wallet set up.`, usedLlm: false }); return;
+        }
         const txRes = await circle().createTransaction({
           walletId,
           tokenId: usdcToken.token.id as string,
@@ -396,9 +399,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           paymentExecuted: true,
           paymentState: finalState,
         });
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        res.json({ reply: `I tried to send the payment but hit an error: ${msg}. Try using the $ button directly.`, usedLlm: false });
+      } catch (err: unknown) {
+        const errObj = err as { message?: string; response?: { data?: unknown }; code?: string };
+        const detail = errObj?.response?.data ?? errObj?.message ?? String(err);
+        res.json({ reply: `[debug] ${JSON.stringify(detail)} dest=${destAddress} amt=${amountNum}`, usedLlm: false });
       }
       return;
     }

@@ -42457,6 +42457,10 @@ async function handler(req, res) {
           res.json({ reply: "I couldn't find USDC in your wallet. Make sure your wallet is funded.", usedLlm: false });
           return;
         }
+        if (!destAddress) {
+          res.json({ reply: `I couldn't find a wallet for "${rawRecipient}". Make sure they have a ONE Chat account and wallet set up.`, usedLlm: false });
+          return;
+        }
         const txRes = await circle().createTransaction({
           walletId,
           tokenId: usdcToken.token.id,
@@ -42483,8 +42487,9 @@ async function handler(req, res) {
           paymentState: finalState
         });
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        res.json({ reply: `I tried to send the payment but hit an error: ${msg}. Try using the $ button directly.`, usedLlm: false });
+        const errObj = err;
+        const detail = errObj?.response?.data ?? errObj?.message ?? String(err);
+        res.json({ reply: `[debug] ${JSON.stringify(detail)} dest=${destAddress} amt=${amountNum}`, usedLlm: false });
       }
       return;
     }
