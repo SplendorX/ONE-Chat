@@ -1026,3 +1026,9 @@
 {"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793573112942}
 {"level":"debug","message":"[vite] hot updated: /src/components/PaymentReceipt.tsx","timestamp":1793573119112}
 {"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793573119112}
+{"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1793642281365}
+{"level":"debug","message":"[vite] connected.","timestamp":1793645468149}
+{"level":"debug","message":"[vite] hot updated: /src/components/GroupSettingsSheet.tsx","timestamp":1793668417676}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793668417676}
+{"level":"debug","message":"[vite] hot updated: /src/components/GroupSettingsSheet.tsx","timestamp":1793668419413}
+{"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793668419413}

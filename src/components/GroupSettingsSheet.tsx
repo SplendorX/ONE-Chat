@@ -4,6 +4,7 @@ import { X, Users, UserPlus, UserMinus, LogOut, Camera, Loader2, Check, Search }
 import type { Session } from '@supabase/supabase-js';
 import type { Conversation } from '../types';
 import { supabase } from '../lib/supabase';
+import { post } from '../lib/api';
 
 interface Member {
   userId: string;
@@ -101,37 +102,40 @@ export function GroupSettingsSheet({ conversation, session, onClose, onLeft, onN
   }
 
   async function addMember(member: Member) {
-    const { error: err } = await supabase
-      .from('conversation_members')
-      .insert({ conversation_id: conversation.id, user_id: member.userId, role: 'member' });
-    if (err) { setError('Could not add member'); return; }
-    setMembers((prev) => [...prev, member]);
-    setSearchResults((prev) => prev.filter((r) => r.userId !== member.userId));
-    setSearchQuery('');
-    setShowAddSearch(false);
+    setError('');
+    try {
+      await post('/group/add-member', { conversationId: conversation.id, userId: member.userId });
+      setMembers((prev) => [...prev, member]);
+      setSearchResults((prev) => prev.filter((r) => r.userId !== member.userId));
+      setSearchQuery('');
+      setShowAddSearch(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not add member');
+    }
   }
 
   async function removeMember(memberId: string) {
     if (!window.confirm('Remove this member from the group?')) return;
-    const { error: err } = await supabase
-      .from('conversation_members')
-      .delete()
-      .eq('conversation_id', conversation.id)
-      .eq('user_id', memberId);
-    if (err) { setError('Could not remove member'); return; }
-    setMembers((prev) => prev.filter((m) => m.userId !== memberId));
+    setError('');
+    try {
+      await post('/group/remove-member', { conversationId: conversation.id, userId: memberId });
+      setMembers((prev) => prev.filter((m) => m.userId !== memberId));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not remove member');
+    }
   }
 
   async function leaveGroup() {
     if (!window.confirm('Leave this group? You won\'t see new messages.')) return;
     setLeavingGroup(true);
-    const { error: err } = await supabase
-      .from('conversation_members')
-      .delete()
-      .eq('conversation_id', conversation.id)
-      .eq('user_id', myId);
-    if (err) { setError('Could not leave group'); setLeavingGroup(false); return; }
-    onLeft();
+    setError('');
+    try {
+      await post('/group/remove-member', { conversationId: conversation.id, userId: myId });
+      onLeft();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not leave group');
+      setLeavingGroup(false);
+    }
   }
 
   const amAdmin = members.find((m) => m.userId === myId)?.isAdmin ?? false;
@@ -218,7 +222,7 @@ export function GroupSettingsSheet({ conversation, session, onClose, onLeft, onN
                 <div className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--ink)' }}>
                   <Users size={14} style={{ color: 'var(--gold)' }} />Members
                 </div>
-                {amAdmin && (
+                {(
                   <button onClick={() => setShowAddSearch((v) => !v)}
                     className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full"
                     style={{ background: 'var(--surface-muted)', color: 'var(--ink)', border: 'none', cursor: 'pointer' }}>

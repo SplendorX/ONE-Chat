@@ -824,5 +824,45 @@ Help users: send USDC by .one handle or wallet address, understand transactions,
     return;
   }
 
+  // POST /group/add-member
+  if (path === '/group/add-member' && req.method === 'POST') {
+    const user = await getUser(req, res); if (!user) return;
+    const { conversationId, userId: targetUserId } = req.body as { conversationId?: string; userId?: string };
+    if (!conversationId || !targetUserId) { res.status(400).json({ error: 'conversationId and userId required' }); return; }
+    const supabase = db();
+    // Verify caller is a member (and optionally admin) of the group
+    const { data: callerMember } = await supabase.from('conversation_members')
+      .select('role').eq('conversation_id', conversationId).eq('user_id', user.userId).maybeSingle();
+    if (!callerMember) { res.status(403).json({ error: 'You are not a member of this group' }); return; }
+    // Check target isn't already a member
+    const { data: existing } = await supabase.from('conversation_members')
+      .select('user_id').eq('conversation_id', conversationId).eq('user_id', targetUserId).maybeSingle();
+    if (existing) { res.json({ success: true, already: true }); return; }
+    const { error: insertErr } = await supabase.from('conversation_members')
+      .insert({ conversation_id: conversationId, user_id: targetUserId, role: 'member' });
+    if (insertErr) { res.status(500).json({ error: insertErr.message }); return; }
+    res.json({ success: true });
+    return;
+  }
+
+  // POST /group/remove-member
+  if (path === '/group/remove-member' && req.method === 'POST') {
+    const user = await getUser(req, res); if (!user) return;
+    const { conversationId, userId: targetUserId } = req.body as { conversationId?: string; userId?: string };
+    if (!conversationId || !targetUserId) { res.status(400).json({ error: 'conversationId and userId required' }); return; }
+    const supabase = db();
+    // Caller must be admin OR removing themselves
+    const { data: callerMember } = await supabase.from('conversation_members')
+      .select('role').eq('conversation_id', conversationId).eq('user_id', user.userId).maybeSingle();
+    if (!callerMember) { res.status(403).json({ error: 'You are not a member of this group' }); return; }
+    const isAdmin = (callerMember.role as string) === 'admin';
+    if (!isAdmin && targetUserId !== user.userId) { res.status(403).json({ error: 'Only admins can remove other members' }); return; }
+    const { error: delErr } = await supabase.from('conversation_members')
+      .delete().eq('conversation_id', conversationId).eq('user_id', targetUserId);
+    if (delErr) { res.status(500).json({ error: delErr.message }); return; }
+    res.json({ success: true });
+    return;
+  }
+
   res.status(404).json({ error: `Not found: ${path}` });
 }
