@@ -5,6 +5,7 @@ import type { Session } from '@supabase/supabase-js';
 import type { Conversation } from '../types';
 import { supabase } from '../lib/supabase';
 import { post } from '../lib/api';
+import { fetchGroupMembers } from '../lib/members';
 
 interface Member {
   userId: string;
@@ -39,23 +40,8 @@ export function GroupSettingsSheet({ conversation, session, onClose, onLeft, onN
 
   const loadMembers = useCallback(async () => {
     setLoadingMembers(true);
-    const { data } = await supabase
-      .from('conversation_members')
-      .select('user_id, role, profiles(display_name, avatar_url), one_identities(handle)')
-      .eq('conversation_id', conversation.id);
-    if (data) {
-      setMembers(data.map((row) => {
-        const p = row.profiles as { display_name?: string; avatar_url?: string } | null;
-        const o = row.one_identities as { handle?: string } | null;
-        return {
-          userId: row.user_id as string,
-          handle: o?.handle ?? '',
-          displayName: p?.display_name ?? 'Unknown',
-          avatarUrl: p?.avatar_url ?? undefined,
-          isAdmin: (row.role as string) === 'admin',
-        };
-      }));
-    }
+    const list = await fetchGroupMembers(conversation.id);
+    setMembers(list);
     setLoadingMembers(false);
   }, [conversation.id]);
 

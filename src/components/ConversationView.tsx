@@ -1,10 +1,14 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Session } from '@supabase/supabase-js';
-import { ArrowLeft, Phone, MoreHorizontal, Send, Paperclip, DollarSign, Check, CheckCheck, Loader2, BellOff, Trash2, Share, Receipt, Settings, Smile } from 'lucide-react';
+import { ArrowLeft, Phone, MoreHorizontal, Send, Paperclip, DollarSign, Check, CheckCheck, Loader2, BellOff, Trash2, Share, Receipt, Settings, Smile, HandCoins } from 'lucide-react';
 import { AllieIcon } from './AllieIcon';
 import { BillSplitMessage } from './BillSplitMessage';
 import { PaymentReceipt } from './PaymentReceipt';
+import { fetchGroupMembers } from '../lib/members';
+import { notifyNewMessage } from '../lib/push';
+import { RequestSheet } from './RequestSheet';
+import { RequestCard } from './RequestCard';
 import { BillSplitSheet } from './BillSplitSheet';
 import { GroupSettingsSheet } from './GroupSettingsSheet';
 import { EmojiPicker } from './EmojiPicker';
@@ -64,6 +68,7 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
   const [showEmoji, setShowEmoji] = useState(false);
   const [showGroupSettings, setShowGroupSettings] = useState(false);
   const [showBillSplit, setShowBillSplit] = useState(false);
+  const [showRequest, setShowRequest] = useState(false);
   const [groupMembers, setGroupMembers] = useState<{ userId: string; handle: string; displayName: string }[]>([]);
   const [muted, setMuted] = useState(false);
   const attachRef = useRef<HTMLInputElement>(null);
@@ -115,19 +120,7 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
   // Load group members for bill split
   useEffect(() => {
     if (isAllie || conversation.type !== 'group') return;
-    void (async () => {
-      const { data } = await supabase
-        .from('conversation_members')
-        .select('user_id, profiles(display_name, avatar_url), one_identities(handle)')
-        .eq('conversation_id', conversation.id);
-      if (data) {
-        setGroupMembers(data.map((row) => {
-          const p = row.profiles as { display_name?: string } | null;
-          const o = row.one_identities as { handle?: string } | null;
-          return { userId: row.user_id as string, handle: o?.handle ?? '', displayName: p?.display_name ?? 'Unknown' };
-        }));
-      }
-    })();
+    void fetchGroupMembers(conversation.id).then((list) => setGroupMembers(list));
   }, [conversation.id, conversation.type, isAllie]);
 
   // Poll: load ALL messages for this conv every 3s, merge by id
@@ -361,6 +354,9 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
         m.id === tempId ? { ...m, id: data.id as string, deliveryState: 'delivered' } : m
       ));
 
+      // Push alert to the other members (best-effort)
+      notifyNewMessage(conversation.id, content);
+
       // Touch conversation updated_at
       await supabase.from('conversations').update({ updated_at: new Date().toISOString() }).eq('id', conversation.id);
     } catch (err) {
@@ -564,6 +560,16 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
             <DollarSign size={15} />
           </button>
 
+          {conversation.type !== 'group' && !isAllie && (
+            <button
+              onClick={() => setShowRequest(true)}
+              className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer transition-all"
+              style={{ background: 'var(--surface-muted)', color: 'var(--muted)', border: '1px solid var(--border)' }}
+              title="Request USDC">
+              <HandCoins size={15} />
+            </button>
+          )}
+
           {conversation.type === 'group' && (
             <button
               onClick={() => setShowBillSplit(true)}
@@ -661,6 +667,8 @@ export function ConversationView({ conversation, user, session, onBack }: Conver
       )}
 
       {/* Bill split sheet */}
+      {showRequest && <RequestSheet conversation={conversation} onClose={() => setShowRequest(false)} />}
+
       {showBillSplit && (
         <BillSplitSheet
           conversation={conversation}
@@ -693,7 +701,23 @@ function MessageBubble({ msg, isAllie, session }: { msg: Message; isAllie: boole
     }
   }
 
-  if (msg.type === 'payment' || msg.type === 'payment_request') {
+  if (msg.type === 'payment_request') {
+    const rm = msg.metadata as { amount?: string; note?: string; requesterHandle?: string; status?: string } | undefined;
+    return (
+      <RequestCard
+        messageId={msg.id}
+        conversationId={msg.conversationId}
+        isOwn={msg.isOwn}
+        amount={rm?.amount ?? '0'}
+        note={rm?.note || undefined}
+        requesterHandle={rm?.requesterHandle ?? ''}
+        createdAt={msg.createdAt}
+        initialStatus={rm?.status}
+      />
+    );
+  }
+
+  if (msg.type === 'payment') {
     const meta = msg.metadata as {
       amount?: string; recipientHandle?: string; state?: string;
       transactionId?: string;

@@ -15,7 +15,7 @@ One Chat combines messaging, USDC payments, collaborative finance, creator gifti
 - **Frontend:** React 18, TypeScript, Vite, Tailwind CSS
 - **Fonts:** Space Grotesk (display), DM Sans (body)
 - **Web3:** wagmi v2, viem v2, ConnectKit
-- **Chain:** Arc Testnet (Chain ID: 5042002) — USDC as native gas
+- **Chain:** Arc (Chain ID: 5042) — USDC as native gas
 - **Wallet infrastructure:** Circle developer-controlled wallets (Phase 7)
 
 ## Development
@@ -36,6 +36,14 @@ bun install
 |---|---|---|
 | `CIRCLE_API_KEY` | Circle Standard Developer API Key for wallet operations | Phase 7+ |
 | `CIRCLE_ENTITY_SECRET` | Circle entity secret for developer-controlled wallets | Phase 7+ |
+| `VITE_SUPABASE_URL` | Supabase project URL | Yes |
+| `VITE_SUPABASE_ANON_KEY` | Supabase public anon key | Yes |
+| `SUPABASE_SERVICE_KEY` | Supabase service key used by the API server | Yes |
+| `ANTHROPIC_API_KEY` | Powers open-ended ALLIE answers | Yes |
+| `VITE_TREASURY_ADDRESS` | Wallet that receives Pro subscription payments | Yes |
+| `VAPID_PUBLIC_KEY` | Web push public key (generate with `bunx web-push generate-vapid-keys`) | For push notifications |
+| `VAPID_PRIVATE_KEY` | Web push private key | For push notifications |
+| `VAPID_SUBJECT` | Contact for push, e.g. `mailto:you@example.com` | No |
 | `RPC_PROXY_BASE_URL` | Arc Studio RPC proxy base URL (optional outside Arc Studio) | No |
 | `RPC_PROXY_TOKEN` | Arc Studio RPC proxy auth token | No |
 | `RPC_PROXY_CHAINS` | Comma-separated chain keys for the proxy | No |
@@ -66,7 +74,9 @@ bun run check
 - **Authentication** — Google OAuth and email magic-link sign-in
 - **ONE identity onboarding** — 5-step flow: welcome, claim identity (`name.one`), profile photo, wallet setup, meet ALLIE
 - **Messaging** — Inbox with search, real-time-style conversation view, message bubbles, typing indicator, reactions
-- **USDC payments** — Send/request sheets with quick amounts, review confirmation, payment cards in conversation
+- **USDC payments** — Send USDC with quick amounts and a review step, request money with Pay / Decline cards in chat, and payment receipts with explorer links
+- **Push notifications** — Optional alerts for payments, requests, bill splits and messages, even when the app is closed (turn on in You > Notifications)
+- **Savings goals** — Deposit into a separate savings wallet and withdraw back to your main wallet any time
 - **Bill splitting** — Group bill split cards with per-participant tracking and progress bar
 - **Activity feed** — Unified transaction history with USDC balance display
 - **Channels** — Creator content feed with USDC gifting (public/private attribution, gift messages)

@@ -1032,3 +1032,13 @@
 {"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793668417676}
 {"level":"debug","message":"[vite] hot updated: /src/components/GroupSettingsSheet.tsx","timestamp":1793668419413}
 {"level":"debug","message":"[vite] hot updated: /src/index.css","timestamp":1793668419413}
+{"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1793668877618}
+{"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1793668877618}
+{"level":"debug","message":"[vite] connected.","timestamp":1793668989818}
+{"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1793669006552}
+{"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1793669006553}
+{"level":"debug","message":"[vite] connected.","timestamp":1793669011942}
+{"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1793669051553}
+{"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1793669051587}
+{"level":"log","message":"[vite] server connection lost. Polling for restart...","timestamp":1793669215648}
+{"level":"debug","message":"[vite] connected.","timestamp":1793669222652}

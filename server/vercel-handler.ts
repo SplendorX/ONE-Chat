@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { initiateDeveloperControlledWalletsClient } from '@circle-fin/developer-controlled-wallets';
 import { randomUUID } from 'crypto';
+import webpush from 'web-push';
 
 const BLOCKCHAIN = 'ARC';
 const RESERVED = ['admin', 'allie', 'onechat', 'support', 'help', 'system', 'root', 'circle', 'arc'];
@@ -32,6 +33,49 @@ async function getUser(req: VercelRequest, res: VercelResponse): Promise<{ userI
   const { data, error } = await db().auth.getUser(auth.slice(7));
   if (error || !data.user) { res.status(401).json({ error: 'Invalid or expired token' }); return null; }
   return { userId: data.user.id, userEmail: data.user.email };
+}
+
+// ---- Web push ----
+let vapidReady: boolean | null = null;
+function pushEnabled(): boolean {
+  if (vapidReady !== null) return vapidReady;
+  const pub = process.env.VAPID_PUBLIC_KEY;
+  const priv = process.env.VAPID_PRIVATE_KEY;
+  if (!pub || !priv) { vapidReady = false; return false; }
+  webpush.setVapidDetails(process.env.VAPID_SUBJECT || 'mailto:support@onechat.app', pub, priv);
+  vapidReady = true;
+  return true;
+}
+
+type PushCategory = 'payments' | 'messages' | 'channels';
+
+/** Best-effort push to the given users. Respects each user's notification prefs. Never throws. */
+async function sendPush(userIds: string[], payload: { title: string; body: string; tag?: string; url?: string }, category: PushCategory): Promise<void> {
+  try {
+    if (!userIds.length || !pushEnabled()) return;
+    const supabase = db();
+    const { data: profs } = await supabase.from('profiles').select('id, notification_prefs').in('id', userIds);
+    const allowed = userIds.filter((id) => {
+      const prefs = (profs ?? []).find((p) => p.id === id)?.notification_prefs as Record<string, boolean> | null | undefined;
+      return prefs?.[category] ?? true;
+    });
+    if (!allowed.length) return;
+    const { data: subs } = await supabase.from('push_subscriptions').select('endpoint, p256dh, auth').in('user_id', allowed);
+    const body = JSON.stringify(payload);
+    await Promise.allSettled((subs ?? []).map(async (sub) => {
+      try {
+        await webpush.sendNotification({ endpoint: sub.endpoint as string, keys: { p256dh: sub.p256dh as string, auth: sub.auth as string } }, body);
+      } catch (err) {
+        const code = (err as { statusCode?: number }).statusCode;
+        if (code === 404 || code === 410) await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint as string);
+      }
+    }));
+  } catch { /* push is best-effort */ }
+}
+
+async function handleFor(userId: string): Promise<string> {
+  const { data } = await db().from('one_identities').select('handle').eq('user_id', userId).maybeSingle();
+  return data?.handle ? `${data.handle as string}.one` : 'Someone';
 }
 
 // Poll Circle REST API until terminal state or timeout
@@ -114,7 +158,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const supabase = db();
     const { data: identity } = await supabase.from('one_identities').select('user_id, handle, profiles(display_name, avatar_url)').eq('handle', handle).maybeSingle();
     if (!identity) { res.status(404).json({ error: 'Identity not found' }); return; }
-    const { data: wallet } = await supabase.from('wallets').select('circle_wallet_id, address').eq('user_id', identity.user_id).maybeSingle();
+    const { data: wallet } = await supabase.from('wallets').select('circle_wallet_id, address').eq('user_id', identity.user_id).eq('blockchain', BLOCKCHAIN).or('wallet_type.is.null,wallet_type.eq.main').maybeSingle();
     res.json({ handle: `${identity.handle}.one`, userId: identity.user_id, profile: (identity as { profiles?: unknown }).profiles, address: wallet?.address ?? null, circleWalletId: wallet?.circle_wallet_id ?? null }); return;
   }
 
@@ -156,7 +200,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // GET /wallet/balance
   if (path === '/wallet/balance') {
     const user = await getUser(req, res); if (!user) return;
-    const { data: wallet } = await db().from('wallets').select('circle_wallet_id, address').eq('user_id', user.userId).eq('blockchain', BLOCKCHAIN).maybeSingle();
+    const { data: wallet } = await db().from('wallets').select('circle_wallet_id, address').eq('user_id', user.userId).eq('blockchain', BLOCKCHAIN).or('wallet_type.is.null,wallet_type.eq.main').maybeSingle();
     if (!wallet) { res.json({ balance: '0', address: null }); return; }
     try {
       const balRes = await circle().getWalletTokenBalance({ id: wallet.circle_wallet_id });
@@ -238,6 +282,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
     }).select('id').single();
 
+    if (params.recipientUserId && ['CONFIRMED', 'SENT', 'COMPLETE'].includes(finalState)) {
+      await sendPush([params.recipientUserId], { title: 'Payment received', body: `${await handleFor(params.senderUserId)} sent you $${params.amountNum.toFixed(2)} USDC`, tag: `pay-${txDbId}` }, 'payments');
+    }
     return { transactionId: txDbId, circleTxId, state: finalState, messageId: msgRow?.id as string | undefined };
   }
 
@@ -254,9 +301,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { data: identity } = await supabase.from('one_identities').select('user_id, handle').eq('handle', handle).maybeSingle();
       if (!identity) { res.status(404).json({ error: `${handle}.one not found` }); return; }
       if (identity.user_id === user.userId) { res.status(400).json({ error: 'Cannot send to yourself' }); return; }
-      const { data: senderWallet } = await supabase.from('wallets').select('circle_wallet_id').eq('user_id', user.userId).eq('blockchain', BLOCKCHAIN).maybeSingle();
+      const { data: senderWallet } = await supabase.from('wallets').select('circle_wallet_id').eq('user_id', user.userId).eq('blockchain', BLOCKCHAIN).or('wallet_type.is.null,wallet_type.eq.main').maybeSingle();
       if (!senderWallet) { res.status(400).json({ error: 'Your wallet is not set up for Arc mainnet. Go to the You tab to set up your wallet.' }); return; }
-      const { data: recipientWallet } = await supabase.from('wallets').select('address').eq('user_id', identity.user_id).eq('blockchain', BLOCKCHAIN).maybeSingle();
+      const { data: recipientWallet } = await supabase.from('wallets').select('address').eq('user_id', identity.user_id).eq('blockchain', BLOCKCHAIN).or('wallet_type.is.null,wallet_type.eq.main').maybeSingle();
       if (!recipientWallet) { res.status(400).json({ error: 'Recipient has no wallet' }); return; }
       const result = await executePayment({
         supabase, senderWalletId: senderWallet.circle_wallet_id,
@@ -280,7 +327,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (isNaN(amountNum) || amountNum <= 0) { res.status(400).json({ error: 'Invalid amount' }); return; }
     try {
       const supabase = db();
-      const { data: senderWallet } = await supabase.from('wallets').select('circle_wallet_id').eq('user_id', user.userId).eq('blockchain', BLOCKCHAIN).maybeSingle();
+      const { data: senderWallet } = await supabase.from('wallets').select('circle_wallet_id').eq('user_id', user.userId).eq('blockchain', BLOCKCHAIN).or('wallet_type.is.null,wallet_type.eq.main').maybeSingle();
       if (!senderWallet) { res.status(400).json({ error: 'Sender wallet not provisioned' }); return; }
       const result = await executePayment({
         supabase, senderWalletId: senderWallet.circle_wallet_id,
@@ -344,6 +391,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Resolve recipient — could be a .one handle or a wallet address
       const isAddress = /^0x[0-9a-fA-F]{40}$/.test(rawRecipient);
       let destAddress: string | null = null;
+      let allieRecipientUserId: string | null = null;
       let resolvedHandle = rawRecipient;
       if (isAddress) {
         destAddress = rawRecipient;
@@ -353,18 +401,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) {
           res.json({ reply: `I couldn't find anyone with the handle "${rawRecipient}.one". Double-check the handle and try again.`, usedLlm: false }); return;
         }
-        const { data: wallet } = await db().from('wallets').select('address').eq('user_id', identity.user_id).eq('blockchain', BLOCKCHAIN).maybeSingle();
+        const { data: wallet } = await db().from('wallets').select('address').eq('user_id', identity.user_id).eq('blockchain', BLOCKCHAIN).or('wallet_type.is.null,wallet_type.eq.main').maybeSingle();
         if (!wallet?.address) {
           res.json({ reply: `Found ${rawRecipient}.one but they haven't set up a wallet yet.`, usedLlm: false }); return;
         }
         destAddress = wallet.address;
         resolvedHandle = identity.handle as string;
+        allieRecipientUserId = identity.user_id as string;
       }
       // Execute the payment via Circle
       let dbWalletId = '';
       let resolvedTokenId = '';
       try {
-        const senderWallet = await db().from('wallets').select('circle_wallet_id').eq('user_id', user.userId).eq('blockchain', BLOCKCHAIN).maybeSingle();
+        const senderWallet = await db().from('wallets').select('circle_wallet_id').eq('user_id', user.userId).eq('blockchain', BLOCKCHAIN).or('wallet_type.is.null,wallet_type.eq.main').maybeSingle();
         if (!senderWallet.data?.circle_wallet_id) {
           res.json({ reply: "You don't have a wallet set up yet. Go to the You tab and set up your wallet first.", usedLlm: false }); return;
         }
@@ -392,12 +441,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           idempotencyKey,
         });
         const circleTxId = (txRes.data as { id?: string; transaction?: { id?: string } })?.id ?? (txRes.data as { transaction?: { id?: string } })?.transaction?.id ?? '';
-        const { state: finalState } = await pollCircleUntilTerminal(circleTxId, 8000);
+        const { state: finalState, txHash: allieTxHash } = await pollCircleUntilTerminal(circleTxId, 8000);
         const { data: allieTxRow } = await db().from('transactions').insert({
           sender_id: user.userId,
+          recipient_id: allieRecipientUserId,
           amount,
           asset: 'USDC',
+          blockchain: BLOCKCHAIN,
           state: finalState,
+          tx_hash: allieTxHash,
+          conversation_id: allieConvId ?? null,
           circle_transaction_id: circleTxId,
           idempotency_key: idempotencyKey,
         }).select('id').single();
@@ -419,6 +472,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           });
         }
         const succeeded = ['CONFIRMED', 'SENT', 'COMPLETE'].includes(finalState);
+        if (succeeded && allieRecipientUserId) {
+          await sendPush([allieRecipientUserId], { title: 'Payment received', body: `${await handleFor(user.userId)} sent you $${amountNum.toFixed(2)} USDC`, tag: `pay-${circleTxId}` }, 'payments');
+        }
         res.json({
           reply: succeeded
             ? `Done! I sent $${amount} USDC to ${resolvedHandle}${resolvedHandle.includes('.one') ? '' : '.one'}. The transaction is confirmed on Arc Network.`
@@ -438,7 +494,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // --- Balance check: return actual balance ---
     if (/\bbalance\b|\bhow much\b.*\bhave\b|\bwhat.*\bbalance\b|\bmy balance\b/i.test(clean)) {
       try {
-        const { data: w } = await db().from('wallets').select('circle_wallet_id').eq('user_id', user.userId).eq('blockchain', BLOCKCHAIN).maybeSingle();
+        const { data: w } = await db().from('wallets').select('circle_wallet_id').eq('user_id', user.userId).eq('blockchain', BLOCKCHAIN).or('wallet_type.is.null,wallet_type.eq.main').maybeSingle();
         if (w?.circle_wallet_id) {
           const balRes = await circle().getWalletTokenBalance({ id: w.circle_wallet_id as string });
           const usdc = (balRes.data?.tokenBalances ?? []).find((b: { token?: { symbol?: string }; amount?: string }) => b.token?.symbol === 'USDC');
@@ -475,7 +531,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           res.json({ reply: `$${total.toFixed(2)} split ${names.length} ways: ${list}.\n\nSay "split $${total.toFixed(2)} between ${names.join(', ')} and send" to execute all payments now.`, usedLlm: false }); return;
         }
         // Execute all payments in parallel
-        const { data: senderWalletRow } = await db().from('wallets').select('circle_wallet_id').eq('user_id', user.userId).eq('blockchain', BLOCKCHAIN).maybeSingle();
+        const { data: senderWalletRow } = await db().from('wallets').select('circle_wallet_id').eq('user_id', user.userId).eq('blockchain', BLOCKCHAIN).or('wallet_type.is.null,wallet_type.eq.main').maybeSingle();
         if (!senderWalletRow?.circle_wallet_id) {
           res.json({ reply: "You don't have a wallet set up yet. Go to the You tab first.", usedLlm: false }); return;
         }
@@ -488,11 +544,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           try {
             const { data: identity } = await db().from('one_identities').select('user_id').eq('handle', handle).maybeSingle();
             if (!identity) { results.push(`❌ ${handle}.one — not found`); continue; }
-            const { data: recipWallet } = await db().from('wallets').select('address').eq('user_id', identity.user_id).eq('blockchain', BLOCKCHAIN).maybeSingle();
+            const { data: recipWallet } = await db().from('wallets').select('address').eq('user_id', identity.user_id).eq('blockchain', BLOCKCHAIN).or('wallet_type.is.null,wallet_type.eq.main').maybeSingle();
             if (!recipWallet?.address) { results.push(`❌ ${handle}.one — no wallet`); continue; }
             const txRes = await circle().createTransaction({ walletId: senderWalletId, tokenId: usdcToken.token.id as string, destinationAddress: recipWallet.address as string, amounts: [String(share)], fee: { type: 'level', config: { feeLevel: 'MEDIUM' } }, idempotencyKey: randomUUID() });
             const circleTxId = (txRes.data as { id?: string })?.id ?? '';
-            const { state } = await pollCircleUntilTerminal(circleTxId, 8000);
+            const { state, txHash: splitHash } = await pollCircleUntilTerminal(circleTxId, 8000);
+            await db().from('transactions').insert({
+              sender_id: user.userId, recipient_id: identity.user_id, amount: share, asset: 'USDC',
+              blockchain: BLOCKCHAIN, state, tx_hash: splitHash, circle_transaction_id: circleTxId,
+              conversation_id: allieConvId ?? null, idempotency_key: randomUUID(),
+            });
             results.push(['CONFIRMED', 'SENT', 'COMPLETE'].includes(state) ? `✅ ${handle}.one — $${share.toFixed(2)} sent` : `⚠️ ${handle}.one — ${state}`);
           } catch (e) { results.push(`❌ ${handle}.one — ${e instanceof Error ? e.message : 'error'}`); }
         }
@@ -531,7 +592,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // --- LLM path: Pro users only ---
     try {
-      const { data: wallet } = await db().from('wallets').select('circle_wallet_id, address').eq('user_id', user.userId).eq('blockchain', BLOCKCHAIN).maybeSingle();
+      const { data: wallet } = await db().from('wallets').select('circle_wallet_id, address').eq('user_id', user.userId).eq('blockchain', BLOCKCHAIN).or('wallet_type.is.null,wallet_type.eq.main').maybeSingle();
       let balanceContext = '';
       if (wallet) {
         try {
@@ -570,7 +631,7 @@ Help users: send USDC by .one handle or wallet address, understand transactions,
     const { data: profile } = await db().from('profiles').select('is_pro').eq('id', user.userId).maybeSingle();
     if (profile?.is_pro) { res.json({ success: true, alreadyPro: true, message: "You're already a ONE Pro member!" }); return; }
     // Get sender wallet
-    const { data: wallet } = await db().from('wallets').select('circle_wallet_id, address').eq('user_id', user.userId).eq('blockchain', BLOCKCHAIN).maybeSingle();
+    const { data: wallet } = await db().from('wallets').select('circle_wallet_id, address').eq('user_id', user.userId).eq('blockchain', BLOCKCHAIN).or('wallet_type.is.null,wallet_type.eq.main').maybeSingle();
     if (!wallet?.circle_wallet_id) { res.status(400).json({ error: 'Wallet not set up. Go to the You tab first.' }); return; }
     // Charge 5 USDC — send to app treasury address (owner's wallet)
     const treasuryAddress = process.env.VITE_TREASURY_ADDRESS;
@@ -645,7 +706,7 @@ Help users: send USDC by .one handle or wallet address, understand transactions,
     const { data: goal } = await db().from('savings_goals').select('current_amount, target_amount, savings_wallet_id').eq('id', goalId).eq('user_id', user.userId).maybeSingle();
     if (!goal) { res.status(404).json({ error: 'Goal not found' }); return; }
     // Load sender wallet
-    const { data: senderWalletRow } = await db().from('wallets').select('circle_wallet_id').eq('user_id', user.userId).eq('blockchain', BLOCKCHAIN).maybeSingle();
+    const { data: senderWalletRow } = await db().from('wallets').select('circle_wallet_id').eq('user_id', user.userId).eq('blockchain', BLOCKCHAIN).or('wallet_type.is.null,wallet_type.eq.main').maybeSingle();
     if (!senderWalletRow?.circle_wallet_id) { res.status(400).json({ error: 'No wallet found. Set up your wallet first.' }); return; }
     const senderWalletId = senderWalletRow.circle_wallet_id as string;
     // Get or create savings sub-wallet for this user
@@ -659,7 +720,7 @@ Help users: send USDC by .one handle or wallet address, understand transactions,
         savingsAddress = existingSavings.address as string;
       } else {
         // Create a new savings sub-wallet
-        const { data: wsRow } = await db().from('wallets').select('circle_wallet_set_id').eq('user_id', user.userId).maybeSingle();
+        const { data: wsRow } = await db().from('wallets').select('circle_wallet_set_id').eq('user_id', user.userId).eq('blockchain', BLOCKCHAIN).or('wallet_type.is.null,wallet_type.eq.main').maybeSingle();
         const walletSetId = (wsRow as { circle_wallet_set_id?: string } | null)?.circle_wallet_set_id;
         if (!walletSetId) { res.status(400).json({ error: 'Wallet set not found' }); return; }
         const wRes = await circle().createWallets({ accountType: 'EOA', blockchains: [BLOCKCHAIN], count: 1, walletSetId });
@@ -690,6 +751,40 @@ Help users: send USDC by .one handle or wallet address, understand transactions,
     const isCompleted = parseFloat(newAmount) >= parseFloat(goal.target_amount as string);
     await db().from('savings_goals').update({ current_amount: newAmount, is_completed: isCompleted }).eq('id', goalId);
     res.json({ newAmount, isCompleted, txId: circleTxId });
+    return;
+  }
+
+  // POST /wallet/savings/:id/withdraw — move USDC from savings wallet back to main wallet
+  if (path.match(/^\/wallet\/savings\/[^/]+\/withdraw$/) && req.method === 'POST') {
+    const user = await getUser(req, res); if (!user) return;
+    const goalId = path.split('/')[3];
+    const { amount } = req.body as { amount?: string };
+    const amountNum = parseFloat(amount ?? '');
+    if (isNaN(amountNum) || amountNum <= 0) { res.status(400).json({ error: 'Invalid amount' }); return; }
+    try {
+      const { data: goal } = await db().from('savings_goals').select('current_amount, target_amount, savings_wallet_id').eq('id', goalId).eq('user_id', user.userId).maybeSingle();
+      if (!goal) { res.status(404).json({ error: 'Goal not found' }); return; }
+      const saved = parseFloat(goal.current_amount as string);
+      if (amountNum > saved + 1e-9) { res.status(400).json({ error: `You only have $${saved.toFixed(2)} saved in this goal` }); return; }
+      const savingsWalletId = (goal as { savings_wallet_id?: string }).savings_wallet_id;
+      if (!savingsWalletId) { res.status(400).json({ error: 'This goal has no savings wallet yet' }); return; }
+      const { data: main } = await db().from('wallets').select('address').eq('user_id', user.userId).eq('blockchain', BLOCKCHAIN).or('wallet_type.is.null,wallet_type.eq.main').maybeSingle();
+      if (!main?.address) { res.status(400).json({ error: 'Main wallet not found' }); return; }
+      const balRes = await circle().getWalletTokenBalance({ id: savingsWalletId });
+      const usdcToken = (balRes.data?.tokenBalances ?? []).find((b: { token?: { symbol?: string; id?: string; name?: string } }) => b.token?.symbol === 'USDC' || b.token?.name?.includes('USD Coin'));
+      if (!usdcToken?.token?.id) { res.status(400).json({ error: 'No USDC in savings wallet' }); return; }
+      const txRes = await circle().createTransaction({ walletId: savingsWalletId, tokenId: usdcToken.token.id as string, destinationAddress: main.address as string, amounts: [String(amountNum)], fee: { type: 'level', config: { feeLevel: 'MEDIUM' } }, idempotencyKey: randomUUID() });
+      const circleTxId = (txRes.data as { id?: string })?.id;
+      if (!circleTxId) throw new Error('No transaction ID from Circle');
+      const { state } = await pollCircleUntilTerminal(circleTxId, 8000);
+      if (!['CONFIRMED', 'SENT', 'COMPLETE'].includes(state)) { res.status(500).json({ error: `Withdrawal ${state}. Savings are unchanged.` }); return; }
+      const newAmount = Math.max(0, saved - amountNum).toFixed(6);
+      await db().from('savings_goals').update({ current_amount: newAmount, is_completed: parseFloat(newAmount) >= parseFloat(goal.target_amount as string) }).eq('id', goalId);
+      res.json({ newAmount, txId: circleTxId });
+    } catch (err) {
+      const detail = (err as { response?: { data?: unknown } })?.response?.data ?? (err instanceof Error ? err.message : 'Withdrawal failed');
+      res.status(500).json({ error: typeof detail === 'string' ? detail : JSON.stringify(detail) });
+    }
     return;
   }
 
@@ -729,10 +824,31 @@ Help users: send USDC by .one handle or wallet address, understand transactions,
         sender_id: user.userId,
         type: 'payment_request',
         content: `Requested $${amount} USDC`,
-        metadata: { amount, note: note ?? '', requestId: (req_ as { id: string })?.id, requesterHandle: senderIdentity?.handle ?? '' },
+        metadata: { amount, note: note ?? '', requestId: (req_ as { id: string })?.id, requesterHandle: senderIdentity?.handle ?? '', status: 'pending' },
       });
     }
+    await sendPush([identity.user_id as string], { title: 'Payment request', body: `${await handleFor(user.userId)} requested $${parseFloat(amount).toFixed(2)} USDC`, tag: `req-${(req_ as { id: string })?.id}` }, 'payments');
     res.json({ success: true, requestId: (req_ as { id: string })?.id });
+    return;
+  }
+
+  // POST /payment/request/respond — payer pays/declines, requester cancels
+  if (path === '/payment/request/respond' && req.method === 'POST') {
+    const user = await getUser(req, res); if (!user) return;
+    const { messageId, action } = req.body as { messageId?: string; action?: 'paid' | 'declined' | 'cancelled' };
+    if (!messageId || !action || !['paid', 'declined', 'cancelled'].includes(action)) { res.status(400).json({ error: 'messageId and valid action required' }); return; }
+    const { data: msg } = await db().from('messages').select('id, type, metadata').eq('id', messageId).maybeSingle();
+    if (!msg || msg.type !== 'payment_request') { res.status(404).json({ error: 'Request not found' }); return; }
+    const meta = (msg.metadata ?? {}) as { requestId?: string; status?: string };
+    if (meta.status && meta.status !== 'pending') { res.json({ success: true, status: meta.status }); return; }
+    const { data: reqTx } = meta.requestId ? await db().from('transactions').select('id, sender_id, recipient_id').eq('id', meta.requestId).maybeSingle() : { data: null };
+    if (!reqTx) { res.status(404).json({ error: 'Request no longer exists' }); return; }
+    const isPayer = reqTx.sender_id === user.userId;
+    const isRequester = reqTx.recipient_id === user.userId;
+    if ((action === 'cancelled' && !isRequester) || (action !== 'cancelled' && !isPayer)) { res.status(403).json({ error: 'Not allowed' }); return; }
+    await db().from('messages').update({ metadata: { ...meta, status: action } }).eq('id', messageId);
+    await db().from('transactions').delete().eq('id', reqTx.id as string);
+    res.json({ success: true, status: action });
     return;
   }
 
@@ -765,6 +881,7 @@ Help users: send USDC by .one handle or wallet address, understand transactions,
       content: `${creatorIdentity?.handle ?? 'Someone'} created a bill split: ${title}`,
       metadata: { splitId, title, totalAmount, perPersonAmount, memberCount: memberIds.length },
     });
+    await sendPush(memberIds.filter((id) => id !== user.userId), { title: 'Bill split', body: `${creatorIdentity?.handle ?? 'Someone'} split "${title}": your share is $${parseFloat(perPersonAmount).toFixed(2)}`, tag: `split-${splitId}` }, 'payments');
     res.json({ success: true, splitId });
     return;
   }
@@ -781,10 +898,10 @@ Help users: send USDC by .one handle or wallet address, understand transactions,
     if (!contrib) { res.status(404).json({ error: 'You are not part of this bill split' }); return; }
     if ((contrib.state as string) !== 'PENDING') { res.json({ success: true, alreadyPaid: true }); return; }
     // Get payer wallet
-    const { data: payerWallet } = await db().from('wallets').select('circle_wallet_id').eq('user_id', user.userId).eq('blockchain', BLOCKCHAIN).maybeSingle();
+    const { data: payerWallet } = await db().from('wallets').select('circle_wallet_id').eq('user_id', user.userId).eq('blockchain', BLOCKCHAIN).or('wallet_type.is.null,wallet_type.eq.main').maybeSingle();
     if (!payerWallet?.circle_wallet_id) { res.status(400).json({ error: 'Wallet not set up' }); return; }
     // Get creator wallet address
-    const { data: creatorWallet } = await db().from('wallets').select('address').eq('user_id', split.created_by).maybeSingle();
+    const { data: creatorWallet } = await db().from('wallets').select('address').eq('user_id', split.created_by).eq('blockchain', BLOCKCHAIN).or('wallet_type.is.null,wallet_type.eq.main').maybeSingle();
     if (!creatorWallet?.address) { res.status(404).json({ error: 'Creator has no wallet' }); return; }
     // Execute payment
     const balRes = await circle().getWalletTokenBalance({ id: payerWallet.circle_wallet_id as string });
@@ -821,6 +938,50 @@ Help users: send USDC by .one handle or wallet address, understand transactions,
     const { data: split } = await db().from('bill_splits').select('*, bill_split_contributions(user_id, state, amount)').eq('id', splitId).maybeSingle();
     if (!split) { res.status(404).json({ error: 'Not found' }); return; }
     res.json({ split });
+    return;
+  }
+
+  // GET /push/config — public VAPID key (null when push isn't configured)
+  if (path === '/push/config' && req.method === 'GET') {
+    res.json({ publicKey: pushEnabled() ? process.env.VAPID_PUBLIC_KEY : null });
+    return;
+  }
+
+  // POST /push/subscribe
+  if (path === '/push/subscribe' && req.method === 'POST') {
+    const user = await getUser(req, res); if (!user) return;
+    const { endpoint, keys } = req.body as { endpoint?: string; keys?: { p256dh?: string; auth?: string } };
+    if (!endpoint || !keys?.p256dh || !keys?.auth) { res.status(400).json({ error: 'Invalid subscription' }); return; }
+    const { error } = await db().from('push_subscriptions').upsert({ user_id: user.userId, endpoint, p256dh: keys.p256dh, auth: keys.auth }, { onConflict: 'endpoint' });
+    if (error) { res.status(500).json({ error: error.message }); return; }
+    res.json({ success: true });
+    return;
+  }
+
+  // POST /push/unsubscribe
+  if (path === '/push/unsubscribe' && req.method === 'POST') {
+    const user = await getUser(req, res); if (!user) return;
+    const { endpoint } = req.body as { endpoint?: string };
+    if (endpoint) await db().from('push_subscriptions').delete().eq('endpoint', endpoint).eq('user_id', user.userId);
+    res.json({ success: true });
+    return;
+  }
+
+  // POST /push/notify-message — alert the other members of a conversation about a new message
+  if (path === '/push/notify-message' && req.method === 'POST') {
+    const user = await getUser(req, res); if (!user) return;
+    const { conversationId, preview } = req.body as { conversationId?: string; preview?: string };
+    if (!conversationId) { res.status(400).json({ error: 'conversationId required' }); return; }
+    const { data: members } = await db().from('conversation_members').select('user_id').eq('conversation_id', conversationId);
+    if (!members?.some((m) => m.user_id === user.userId)) { res.status(403).json({ error: 'Not a member' }); return; }
+    const others = members.map((m) => m.user_id as string).filter((id) => id !== user.userId);
+    const { data: conv } = await db().from('conversations').select('type, name').eq('id', conversationId).maybeSingle();
+    const { data: prof } = await db().from('profiles').select('display_name').eq('id', user.userId).maybeSingle();
+    const sender = (prof?.display_name as string | undefined) ?? 'New message';
+    const isGroup = conv?.type === 'group';
+    const text = (preview ?? '').slice(0, 120) || 'Sent you a message';
+    await sendPush(others, { title: isGroup ? `${(conv?.name as string | undefined) ?? 'Group'}` : sender, body: isGroup ? `${sender}: ${text}` : text, tag: `msg-${conversationId}` }, 'messages');
+    res.json({ success: true });
     return;
   }
 

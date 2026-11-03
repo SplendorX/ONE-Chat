@@ -286,13 +286,13 @@ export function PaymentSheet({ conversation, session, onClose, onPaymentSent }: 
               <div className="display text-4xl font-bold tabular-nums" style={{ color: 'var(--ink)' }}>
                 ${formatUSDC(amountNum)}
               </div>
-              <div className="text-sm mt-1" style={{ color: 'var(--muted)' }}>USDC on Arc Testnet</div>
+              <div className="text-sm mt-1" style={{ color: 'var(--muted)' }}>USDC on Arc</div>
             </div>
 
             <div className="space-y-2">
               {[
                 ['To', sendMode === 'address' ? `${externalAddress.slice(0, 6)}...${externalAddress.slice(-4)}` : conversation.name],
-                ['Network', 'Arc Testnet'],
+                ['Network', 'Arc'],
                 ['Asset', 'USDC'],
                 ['Network fee', 'Minimal (USDC)'],
               ].map(([label, val]) => (
@@ -331,7 +331,7 @@ export function PaymentSheet({ conversation, session, onClose, onPaymentSent }: 
             <div className="text-center">
               <div className="font-semibold mb-1" style={{ color: 'var(--ink)' }}>Processing payment…</div>
               <div className="text-sm" style={{ color: 'var(--muted)' }}>
-                ${formatUSDC(amountNum)} USDC · Arc Testnet
+                ${formatUSDC(amountNum)} USDC · Arc
               </div>
               <div className="text-xs mt-2 tabular-nums" style={{ color: 'var(--subtle)' }}>
                 Status: {txState || 'INITIATED'}

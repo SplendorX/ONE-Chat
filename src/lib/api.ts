@@ -125,6 +125,10 @@ export async function depositToGoal(goalId: string, amount: string) {
   return post<{ newAmount: string; isCompleted: boolean }>(`/wallet/savings/${goalId}/deposit`, { amount });
 }
 
+export async function withdrawFromGoal(goalId: string, amount: string) {
+  return post<{ newAmount: string; txId: string }>(`/wallet/savings/${goalId}/withdraw`, { amount });
+}
+
 export async function deleteGoal(goalId: string) {
   const headers = await authHeaders();
   const res = await fetch(`${API_BASE}/wallet/savings/${goalId}`, { method: 'DELETE', headers });
@@ -146,4 +150,8 @@ export async function getPaymentStatus(txId: string) {
       circle_transaction_id: string | null;
     };
   }>(`/payment/status/${txId}`);
+}
+
+export async function respondToRequest(messageId: string, action: 'paid' | 'declined' | 'cancelled') {
+  return post<{ success: boolean; status: string }>('/payment/request/respond', { messageId, action });
 }

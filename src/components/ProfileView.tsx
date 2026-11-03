@@ -10,6 +10,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getWalletBalance, provisionWallet, subscribeToPro } from '../lib/api';
 import { supabase } from '../lib/supabase';
+import { PushToggle } from './PushToggle';
 
 interface ProfileViewProps {
   user: User; session: Session; theme: Theme;
@@ -264,6 +265,7 @@ export function ProfileView({
               <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
                 className="overflow-hidden border-t" style={{ borderColor: 'var(--border)' }}>
                 <div className="px-4 py-3 space-y-3" style={{ background: 'var(--surface-muted)' }}>
+                  <PushToggle />
                   {[
                     { label: 'Payment received', icon: CreditCard, value: notifPayments, set: setNotifPayments },
                     { label: 'New messages', icon: Smartphone, value: notifMessages, set: setNotifMessages },

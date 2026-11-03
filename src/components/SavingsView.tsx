@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PiggyBank, Plus, Target, Trash2, CheckCircle, Clock, TrendingUp, X, Loader2, ChevronRight } from 'lucide-react';
+import { PiggyBank, Plus, Target, Trash2, CheckCircle, Clock, TrendingUp, X, Loader2, ChevronRight, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
 import type { Session } from '@supabase/supabase-js';
 import type { User } from '../types';
-import { getSavingsGoals, createSavingsGoal, depositToGoal, deleteGoal } from '../lib/api';
+import { getSavingsGoals, createSavingsGoal, depositToGoal, withdrawFromGoal, deleteGoal } from '../lib/api';
 import { formatUSDC } from '../lib/utils';
 
 interface Goal {
@@ -40,6 +40,7 @@ export function SavingsView({ user, session }: SavingsViewProps) {
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [showDeposit, setShowDeposit] = useState<Goal | null>(null);
+  const [mode, setMode] = useState<'deposit' | 'withdraw'>('deposit');
   const [depositAmt, setDepositAmt] = useState('');
   const [depositLoading, setDepositLoading] = useState(false);
   const [newName, setNewName] = useState('');
@@ -79,17 +80,19 @@ export function SavingsView({ user, session }: SavingsViewProps) {
     setDepositLoading(true);
     setError('');
     try {
-      await depositToGoal(showDeposit.id, depositAmt.trim());
+      if (mode === 'withdraw') await withdrawFromGoal(showDeposit.id, depositAmt.trim());
+      else await depositToGoal(showDeposit.id, depositAmt.trim());
       setShowDeposit(null); setDepositAmt('');
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Deposit failed. Check your balance and try again.');
+      setError(e instanceof Error ? e.message : mode === 'withdraw' ? 'Withdrawal failed. Try a slightly smaller amount.' : 'Deposit failed. Check your balance and try again.');
     }
     finally { setDepositLoading(false); }
   }
 
-  async function handleDelete(goalId: string) {
-    if (!confirm('Delete this savings goal?')) return;
+  async function handleDelete(goalId: string, saved: number) {
+    const msg = saved > 0 ? `This goal still holds $${saved.toFixed(2)}. Withdraw it first or it stays in your savings wallet. Delete anyway?` : 'Delete this savings goal?';
+    if (!confirm(msg)) return;
     try {
       await deleteGoal(goalId);
       await load();
@@ -142,7 +145,7 @@ export function SavingsView({ user, session }: SavingsViewProps) {
       </div>
 
       {/* Goals list */}
-      <div style={{ flex: 1, padding: 16 }}>
+      <div style={{ flex: 1, padding: '16px 16px 96px' }}>
         {loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
             <Loader2 size={24} style={{ animation: 'spin 1s linear infinite', color: 'var(--gold)' }} />
@@ -187,23 +190,27 @@ export function SavingsView({ user, session }: SavingsViewProps) {
                           <span>{pct.toFixed(0)}% complete</span>
                         </div>
                       </div>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        {!goal.is_completed && (
-                          <motion.button whileTap={{ scale: 0.9 }} onClick={() => { setShowDeposit(goal); setDepositAmt(''); }}
-                            style={{ padding: '5px 10px', background: 'var(--gold)', color: 'var(--bg)', border: 'none', borderRadius: 12, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
-                            Add
-                          </motion.button>
-                        )}
-                        <motion.button whileTap={{ scale: 0.9 }} onClick={() => void handleDelete(goal.id)}
-                          style={{ padding: '5px 8px', background: 'var(--surface-muted)', color: 'var(--muted)', border: 'none', borderRadius: 12, cursor: 'pointer' }}>
-                          <Trash2 size={12} />
-                        </motion.button>
-                      </div>
                     </div>
                     <ProgressBar current={current} target={target} />
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 13 }}>
                       <span style={{ color: 'var(--gold)', fontWeight: 600 }}>${current.toFixed(2)} saved</span>
                       <span style={{ color: 'var(--muted)' }}>of ${target.toFixed(2)}</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+                      {!goal.is_completed && (
+                        <motion.button whileTap={{ scale: 0.96 }} onClick={() => { setMode('deposit'); setError(''); setShowDeposit(goal); setDepositAmt(''); }}
+                          style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px 12px', background: 'var(--gold)', color: 'var(--bg)', border: 'none', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                          <ArrowDownToLine size={14} />Deposit
+                        </motion.button>
+                      )}
+                      <motion.button whileTap={{ scale: 0.96 }} disabled={current <= 0} onClick={() => { setMode('withdraw'); setError(''); setShowDeposit(goal); setDepositAmt(''); }}
+                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '10px 12px', background: 'transparent', color: 'var(--ink)', border: '1.5px solid var(--border-strong)', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: current <= 0 ? 'not-allowed' : 'pointer', opacity: current <= 0 ? 0.4 : 1 }}>
+                        <ArrowUpFromLine size={14} />Withdraw
+                      </motion.button>
+                      <motion.button whileTap={{ scale: 0.96 }} aria-label="Delete goal" onClick={() => void handleDelete(goal.id, current)}
+                        style={{ width: 42, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--surface-muted)', color: 'var(--danger)', border: '1px solid var(--border)', borderRadius: 12, cursor: 'pointer' }}>
+                        <Trash2 size={15} />
+                      </motion.button>
                     </div>
                   </motion.div>
                 );
@@ -217,7 +224,7 @@ export function SavingsView({ user, session }: SavingsViewProps) {
       <AnimatePresence>
         {showCreate && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', zIndex: 100 }}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', zIndex: 300 }}
             onClick={(e) => { if (e.target === e.currentTarget) setShowCreate(false); }}>
             <motion.div initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 60, opacity: 0 }}
               style={{ width: '100%', maxWidth: 480, margin: '0 auto', background: 'var(--surface-overlay)', borderRadius: '20px 20px 0 0', padding: 24 }}>
@@ -250,12 +257,12 @@ export function SavingsView({ user, session }: SavingsViewProps) {
       <AnimatePresence>
         {showDeposit && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', zIndex: 100 }}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', zIndex: 300 }}
             onClick={(e) => { if (e.target === e.currentTarget) setShowDeposit(null); }}>
             <motion.div initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 60, opacity: 0 }}
-              style={{ width: '100%', maxWidth: 480, margin: '0 auto', background: 'var(--surface-overlay)', borderRadius: '20px 20px 0 0', padding: 24 }}>
+              style={{ width: '100%', maxWidth: 480, margin: '0 auto', background: 'var(--surface-overlay)', borderRadius: '20px 20px 0 0', padding: 24, paddingBottom: 'max(24px, env(safe-area-inset-bottom))' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <div style={{ fontWeight: 700, fontSize: 17, color: 'var(--ink)' }}>Add to "{showDeposit.name}"</div>
+                <div style={{ fontWeight: 700, fontSize: 17, color: 'var(--ink)' }}>{mode === 'withdraw' ? 'Withdraw from' : 'Add to'} "{showDeposit.name}"</div>
                 <button onClick={() => setShowDeposit(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}><X size={20} /></button>
               </div>
               <div style={{ marginBottom: 16, fontSize: 13, color: 'var(--muted)' }}>
@@ -264,15 +271,15 @@ export function SavingsView({ user, session }: SavingsViewProps) {
               {error && <div style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12, padding: '8px 12px', background: 'var(--danger-bg)', borderRadius: 8 }}>{error}</div>}
               <div style={{ position: 'relative', marginBottom: 8 }}>
                 <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--muted)', fontSize: 16 }}>$</span>
-                <input value={depositAmt} onChange={(e) => setDepositAmt(e.target.value)} placeholder="Amount to deposit" type="number" min="0" autoFocus
+                <input value={depositAmt} onChange={(e) => setDepositAmt(e.target.value)} placeholder={mode === 'withdraw' ? 'Amount to withdraw' : 'Amount to deposit'} type="number" min="0" autoFocus
                   style={{ width: '100%', padding: '14px 14px 14px 28px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface-input)', color: 'var(--ink)', fontSize: 15, boxSizing: 'border-box' }} />
               </div>
               <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
-                <ChevronRight size={11} />USDC will be sent onchain to your savings wallet
+                <ChevronRight size={11} />{mode === 'withdraw' ? 'USDC moves from your savings wallet back to your main wallet. A small network fee is paid from the savings balance.' : 'USDC will be sent onchain to your savings wallet'}
               </div>
               <motion.button whileTap={{ scale: 0.97 }} onClick={() => void handleDeposit()} disabled={depositLoading}
                 style={{ width: '100%', padding: '14px', background: 'var(--gold)', color: 'var(--bg)', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: 15, cursor: 'pointer', opacity: depositLoading ? 0.7 : 1 }}>
-                {depositLoading ? 'Sending USDC…' : 'Deposit USDC'}
+                {depositLoading ? 'Sending USDC…' : mode === 'withdraw' ? 'Withdraw USDC' : 'Deposit USDC'}
               </motion.button>
             </motion.div>
           </motion.div>
